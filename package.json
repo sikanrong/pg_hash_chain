@@ -1,0 +1,58 @@
+{
+  "name": "pg_hash_chain",
+  "version": "1.0.0",
+  "description": "A simple simulation of global-scale distributed database activity to test various features or multi-master replication and conflict resolution.",
+  "main": "index.js",
+  "scripts": {
+    "build": "babel esm --out-dir cjs",
+    "prepublish": "npm run build",
+    "install": "npm run build",
+    "test": "ava --tap test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sikanrong/pg_hash_chain.git"
+  },
+  "keywords": [
+    "postgres",
+    "replication",
+    "crypto"
+  ],
+  "dependencies": {
+    "ava": "^0.21.0",
+    "babel-cli": "^6.24.1",
+    "babel-core": "^6.26.3",
+    "babel-preset-env": "^1.5.1",
+    "babel-register": "^6.24.1",
+    "zookeeper": "3.4.9-3",
+    "shipit-cli": "^4.1.1",
+    "shipit-deploy": "^4.1.1",
+    "pg": "^7.5.0",
+    "express": "^4.16.4",
+    "handlebars": "^4.0.12"
+  },
+  "author": "Alexander Pilafian",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/sikanrong/pg_hash_chain/issues"
+  },
+  "homepage": "https://github.com/sikanrong/pg_hash_chain#readme",
+  "babel": {
+    "presets": [
+      [
+        "env",
+        {
+          "targets": {
+            "node": "current"
+          }
+        }
+      ]
+    ]
+  },
+  "ava": {
+    "require": [
+      "babel-register"
+    ],
+    "babel": "inherit"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "host": "192.168.1.101",
+      "myid": 1,
+      "user": "app"
+    },
+    {
+      "host": "192.168.1.102",
+      "myid": 2,
+      "user": "app"
+    },
+    {
+      "host": "192.168.1.103",
+      "myid": 3,
+      "user": "app"
+    }
+  ],
+
+  "ssh_key": "/Users/sikanrong/.ssh/id_rsa_pgcluster",
+  "shipit_workspace": "/tmp/hash_chain.shipit",
+  "env_path": [
+    "/usr/lib/postgresql/9.4/bin"
+  ],
+
+  "pg_master_port": 5598,
+  "pg_slave_port_start": 5599,
+  "pg_slave_count": 4,
+  "pg_cluster_path": "~/pg_bdr_cluster",
+  "pg_wal_archive_path": "~/pg_bdr_cluster/wal_archive",
+  "pg_master_basebackup_path": "~/pg_bdr_cluster/master_basebackup",
+
+  "zk_config_path": "~/zookeeper_conf",
+  "zk_discovery_port": 2888,
+  "zk_election_port": 3888,
+  "zk_client_port": 2181,
+  "zk_datadir": "/var/lib/zookeeper",
+
+  "app_port_start": 8080,
+  "app_deploy_path": "~/hash_chain",
+
+  "apt_repositories": [
+    "deb https://apt.2ndquadrant.com/ bionic-2ndquadrant main"
+  ],
+  "apt_keys": {
+    "2ndquadrant": "https://apt.2ndquadrant.com/site/keys/9904CD4BD6BAF0C3.asc"
+  },
+  "apt_preinstall_dependencies": [
+    "curl",
+    "ca-certificates",
+    "apt-transport-https"
+  ],
+  "apt_dependencies": [
+    "postgresql-bdr-9.4-bdr-plugin",
+    "vim",
+    "npm",
+    "nodejs",
+    "haproxy",
+    "zookeeper",
+    "zookeeper-bin",
+    "zookeeperd"
+  ]
+}
