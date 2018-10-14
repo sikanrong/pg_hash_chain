@@ -112,15 +112,13 @@ export default shipit => {
     };
 
     shipit.task('remote_zk_configure', async () => {
-        return lauchDaemon('remote', `${$config.app_deploy_path}/current`);
-
         const zk = new ZooKeeper({
             connect: `${$config.nodes[0].host}:${$config.zk_client_port}`
         });
 
         let zk_node_path = null;
 
-        zk.connect((err) => {
+        zk.connect(async (err) => {
             if(err){
                 console.log(`Connection error: '${err}'`);
                 throw err;
@@ -128,19 +126,27 @@ export default shipit => {
 
             console.log ("zk session established, id=%s", zk.client_id);
 
-            zk.aw_get_children('_nodes_', function (type, state, path) { // this is watcher
-                console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
-            }, function (rc, error, children, stat) {
-                console.log(`nodes updated: ${children.length}`);
-
-                if(children.length >= 3 ){
-                    zk.close();
+            zk.a_create('/_nodes_', "", ZooKeeper.ZOO_EPHEMERAL, function (rc, error, path) {
+                if(rc != 0){
+                    throw new Error(error);
                 }
+
+                lauchDaemon('remote', `${$config.app_deploy_path}/current`);
+
+                zk.aw_get_children('_nodes_', function (type, state, path) { // this is watcher
+                    console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
+                }, function (rc, error, children, stat) {
+                    console.log(`nodes updated: ${children.length}`);
+
+                    if(children.length >= 3 ){
+                        zk.close();
+                    }
+                });
             });
         });
 
         return new Promise(function (resolve, reject) {
-            zk.on (ZK.on_closed, function (zkk, clientid) {
+            zk.on (zk.on_closed, function (zkk, clientid) {
                 resolve();
             });
         });

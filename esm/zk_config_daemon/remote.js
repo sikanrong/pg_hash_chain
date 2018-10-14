@@ -18,8 +18,7 @@ zk.connect((err) => {
         throw err;
 
     console.log ("zk session established, id=%s", zk.client_id);
-    zk.mkdirp('_nodes_');
-    zk.a_create('_nodes_/node-', null, ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE, (rc, error, path) => {
+    zk.a_create('/_nodes_/node-', null, ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE, (rc, error, path) => {
         if(rc != 0){
             throw new Error(`Unable to create node at ${path}: '${error}'`);
         }
