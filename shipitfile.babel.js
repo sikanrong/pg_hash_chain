@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import * as $config from "../../cluster.json";
+import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import {ZooKeeper} from "zookeeper";
 import * as path from "path";
