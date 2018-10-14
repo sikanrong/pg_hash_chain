@@ -131,15 +131,20 @@ export default shipit => {
                     throw new Error(_e);
                 }
 
-                zk.aw_get_children2('/_nodes_', function (type, state, path) { // this is watcher
-                    console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
-                }, function (rc, __e, children, stat) {
-                    console.log(`nodes updated: ${children.length}`);
+                const watchNodes = function(){
+                    zk.a_get_children('/_nodes_', function (type, state, path) { // this is watcher
+                        console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
+                        watchNodes();
+                    }, function (rc, __e, children, stat) {
+                        console.log(`nodes updated: ${children.length}`);
 
-                    if(children.length >= 3 ){
-                        zk.close();
-                    }
-                });
+                        if(children.length >= 3 ){
+                            zk.close();
+                        }
+                    });
+                };
+
+                watchNodes();
 
                 lauchDaemon('remote', `${$config.app_deploy_path}/current`);
             });
