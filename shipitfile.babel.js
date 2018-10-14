@@ -126,14 +126,14 @@ export default shipit => {
 
             console.log ("zk session established, id=%s", zk.client_id);
 
-            zk.a_create('/_nodes_', "", ZooKeeper.ZOO_EPHEMERAL, function (rc, error, path) {
-                if(rc != 0){
-                    throw new Error(error);
+            zk.mkdirp('/_nodes_', function (_e) {
+                if(_e){
+                    throw new Error(_e);
                 }
 
-                zk.aw_get_children('/_nodes_', function (type, state, path) { // this is watcher
+                zk.aw_get_children2('/_nodes_', function (type, state, path) { // this is watcher
                     console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
-                }, function (rc, error, children, stat) {
+                }, function (rc, __e, children, stat) {
                     console.log(`nodes updated: ${children.length}`);
 
                     if(children.length >= 3 ){
