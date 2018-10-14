@@ -100,9 +100,33 @@ export default shipit => {
         );
     });
 
+    const lauchDaemon = async (dname, tmp) => {
+        shipit[dname](`
+            if [ -f ${tmp}/${dname}.pid ]; then
+                kill -9 $(cat ${tmp}/${dname}.pid);
+                rm ${tmp}/${dname}.pid;
+            fi 
+            nohup node ./cjs/zk_config_daemon/${dname}.js > ${tmp}/${dname}.log &
+        `);
+
+        return;
+    };
+
+    shipit.task('launch_remote_zk_daemon', async () => {
+        return lauchDaemon('remote', `${$config.app_deploy_path}/current/tmp`);
+    });
+
+    shipit.task('launch_local_zk_daemon', async () => {
+        return lauchDaemon('local', './tmp');
+    });
+
+
+
     shipit.on('deployed', () => {
         return shipit.start([
-            'install-npm-packages'
+            'install-npm-packages',
+            'launch_local_zk_daemon',
+            'launch_remote_zk_daemon'
         ]);
     });
 }
