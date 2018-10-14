@@ -100,24 +100,24 @@ export default shipit => {
         );
     });
 
-    const lauchDaemon = async (dname, tmp) => {
+    const lauchDaemon = async (dname, app) => {
         shipit[dname](`
-            if [ -f ${tmp}/${dname}.pid ]; then
-                kill -9 $(cat ${tmp}/${dname}.pid);
-                rm ${tmp}/${dname}.pid;
+            if [ -f ${app}/tmp/${dname}.pid ]; then
+                kill -9 $(cat ${app}/tmp/${dname}.pid);
+                rm ${app}/tmp/${dname}.pid;
             fi 
-            nohup node ./cjs/zk_config_daemon/${dname}.js > ${tmp}/${dname}.log &
+            nohup node ${app}/cjs/zk_config_daemon/${dname}.js > ${app}/tmp/${dname}.log &
         `);
 
         return;
     };
 
     shipit.task('launch_remote_zk_daemon', async () => {
-        return lauchDaemon('remote', `${$config.app_deploy_path}/current/tmp`);
+        return lauchDaemon('remote', `${$config.app_deploy_path}/current`);
     });
 
     shipit.task('launch_local_zk_daemon', async () => {
-        return lauchDaemon('local', './tmp');
+        return lauchDaemon('local', '.');
     });
 
 
