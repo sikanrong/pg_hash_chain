@@ -131,9 +131,7 @@ export default shipit => {
                     throw new Error(error);
                 }
 
-                lauchDaemon('remote', `${$config.app_deploy_path}/current`);
-
-                zk.aw_get_children('_nodes_', function (type, state, path) { // this is watcher
+                zk.aw_get_children('/_nodes_', function (type, state, path) { // this is watcher
                     console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
                 }, function (rc, error, children, stat) {
                     console.log(`nodes updated: ${children.length}`);
@@ -142,11 +140,13 @@ export default shipit => {
                         zk.close();
                     }
                 });
+
+                lauchDaemon('remote', `${$config.app_deploy_path}/current`);
             });
         });
 
         return new Promise(function (resolve, reject) {
-            zk.on (zk.on_closed, function (zkk, clientid) {
+            zk.on(ZooKeeper.on_closed, function (zkk, clientid) {
                 resolve();
             });
         });
