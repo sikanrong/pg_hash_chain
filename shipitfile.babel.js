@@ -93,7 +93,7 @@ export default shipit => {
         ]);
     });
 
-    shipit.task('install-npm-packages', async () => {
+    shipit.blTask('install-npm-packages', async () => {
         await shipit.remote(
             `cd ${$config.app_deploy_path}/current; 
             npm install;`
@@ -112,17 +112,15 @@ export default shipit => {
         return;
     };
 
-    shipit.task('launch_remote_zk_daemon', async () => {
+    shipit.blTask('launch_remote_zk_daemon', async () => {
         return lauchDaemon('remote', `${$config.app_deploy_path}/current`);
     });
 
-    shipit.task('launch_local_zk_daemon', async () => {
+    shipit.blTask('launch_local_zk_daemon', async () => {
         return lauchDaemon('local', '.');
     });
 
-
-
-    shipit.on('deployed', () => {
+    shipit.on('deployed', async () => {
         return shipit.start([
             'install-npm-packages',
             'launch_local_zk_daemon',
