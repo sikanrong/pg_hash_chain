@@ -126,13 +126,13 @@ export default shipit => {
 
             console.log ("zk session established, id=%s", zk.client_id);
 
-            zk.mkdirp('/_nodes_', function (_e) {
+            zk.mkdirp('/config', function (_e) {
                 if(_e){
                     throw new Error(_e);
                 }
 
                 const watchNodes = function(){
-                    zk.a_get_children('/_nodes_', function (type, state, path) { // this is watcher
+                    zk.a_get_children('/config', function (type, state, path) { // this is watcher
                         console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
                         watchNodes();
                     }, function (rc, __e, children, stat) {
