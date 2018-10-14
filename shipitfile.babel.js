@@ -102,7 +102,7 @@ export default shipit => {
     const lauchDaemon = async (dname, app) => {
         shipit[dname](`
             if [ -f ${app}/tmp/${dname}.pid ]; then
-                kill -9 $(cat ${app}/tmp/${dname}.pid);
+                pkill --pidfile ${app}/tmp/${dname}.pid;
                 rm ${app}/tmp/${dname}.pid;
             fi 
             nohup node ${app}/cjs/zk_config_daemon/${dname}.js > ${app}/tmp/${dname}.log &

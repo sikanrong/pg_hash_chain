@@ -33,13 +33,8 @@ const closeConnection = () => {
     zk.close();
 };
 
-//do something when app is closing
-process.on('exit', exitHandler.bind(closeConnection,{cleanup:true}));
-
-//catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(closeConnection, {exit:true}));
-
-// catches "kill pid" (for example: nodemon restart)
-process.on('SIGUSR1', exitHandler.bind(closeConnection, {exit:true}));
-process.on('SIGUSR2', exitHandler.bind(closeConnection, {exit:true}));
+process.on('exit', closeConnection.bind(this));
+process.on('SIGINT', closeConnection.bind(this));
+process.on('SIGUSR1', closeConnection.bind(this));
+process.on('SIGUSR2', closeConnection.bind(this));
 
