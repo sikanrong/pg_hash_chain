@@ -1,9 +1,8 @@
-const $config = require('./cluster.json');
-const $package = require('./package.json');
-
-const fs = require('fs');
-
+import * as fs from "fs";
+import * as $config from "../../cluster.json";
 import Handlebars from "handlebars";
+import {ZooKeeper} from "zookeeper";
+import * as path from "path";
 
 export default shipit => {
     require('shipit-deploy')(shipit);
@@ -112,19 +111,47 @@ export default shipit => {
         return;
     };
 
-    shipit.blTask('launch_remote_zk_daemon', async () => {
+    shipit.task('remote_zk_configure', async () => {
         return lauchDaemon('remote', `${$config.app_deploy_path}/current`);
+
+        const zk = new ZooKeeper({
+            connect: `${$config.nodes[0].host}:${$config.zk_client_port}`
+        });
+
+        let zk_node_path = null;
+
+        zk.connect((err) => {
+            if(err){
+                console.log(`Connection error: '${err}'`);
+                throw err;
+            }
+
+            console.log ("zk session established, id=%s", zk.client_id);
+
+            zk.aw_get_children('_nodes_', function (type, state, path) { // this is watcher
+                console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
+            }, function (rc, error, children, stat) {
+                console.log(`nodes updated: ${children.length}`);
+
+                if(children.length >= 3 ){
+                    zk.close();
+                }
+            });
+        });
+
+        return new Promise(function (resolve, reject) {
+            zk.on (ZK.on_closed, function (zkk, clientid) {
+                resolve();
+            });
+        });
+
     });
 
-    shipit.blTask('launch_local_zk_daemon', async () => {
-        return lauchDaemon('local', '.');
-    });
 
     shipit.on('deployed', async () => {
         return shipit.start([
             'install-npm-packages',
-            'launch_local_zk_daemon',
-            'launch_remote_zk_daemon'
+            'remote_zk_configure'
         ]);
     });
 }
