@@ -132,15 +132,11 @@ export default shipit => {
                 }
 
                 const watchNodes = function(){
-                    zk.a_get_children('/config', function (type, state, path) { // this is watcher
+                    zk.aw_get_children('/config', function (type, state, path) { // this is watcher
                         console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
                         watchNodes();
                     }, function (rc, __e, children, stat) {
                         console.log(`nodes updated: ${children.length}`);
-
-                        if(children.length >= 3 ){
-                            zk.close();
-                        }
                     });
                 };
 
