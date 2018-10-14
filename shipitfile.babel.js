@@ -93,7 +93,17 @@ export default shipit => {
         ]);
     });
 
-    shipit.on('deployed', () => {
+    shipit.task('install-npm-packages', async () => {
+        await shipit.remote(
+            `ln -s ${$config.app_deploy_path}/node_modules ${$config.app_deploy_path}/current/node_modules;
+            cd ${$config.app_deploy_path}/current; 
+            npm install;`
+        );
+    });
 
+    shipit.on('deployed', () => {
+        return shipit.start([
+            'install-npm-packages'
+        ]);
     });
 }
