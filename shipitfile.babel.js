@@ -12,7 +12,7 @@ export default shipit => {
         default: {
             workspace: $config.shipit_workspace,
             deployTo: $config.app_deploy_path,
-            repositoryUrl: $package.repository.url,
+            repositoryUrl: $config.app_deploy_from,
             ignores: ['.git', 'node_modules'],
             keepReleases: 2,
             deleteOnRollback: false,

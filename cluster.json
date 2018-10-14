@@ -38,6 +38,7 @@
 
   "app_port_start": 8080,
   "app_deploy_path": "~/hash_chain",
+  "app_deploy_from": "file:///var/www/pg_hash_chain",
 
   "apt_repositories": [
     "deb https://apt.2ndquadrant.com/ bionic-2ndquadrant main"
