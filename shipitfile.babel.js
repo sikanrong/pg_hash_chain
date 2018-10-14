@@ -95,9 +95,7 @@ export default shipit => {
 
     shipit.task('install-npm-packages', async () => {
         await shipit.remote(
-            `mkdir -p ${$config.app_deploy_path}/node_modules;
-            ln -s ${$config.app_deploy_path}/node_modules ${$config.app_deploy_path}/current/node_modules;
-            cd ${$config.app_deploy_path}/current; 
+            `cd ${$config.app_deploy_path}/current; 
             npm install;`
         );
     });
