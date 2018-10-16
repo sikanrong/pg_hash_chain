@@ -15,9 +15,9 @@ class Cluster{
         this.init();
     }
 
-    apoptosis(){ //programmed cluster death
-        console.log("Node death requested. %s is shutting down...", this.zk_path)
-        this.closeConnection();
+    async apoptosis(){ //programmed cluster death
+        console.log("Node death requested. %s is shutting down...", this.zk_path);
+        await this.closeConnection();
         process.exit(0);
     }
 
@@ -64,20 +64,20 @@ class Cluster{
 
     }
 
-    closeConnection () {
+    async closeConnection () {
         if(this.zk_path){
-            this.zk.exists(this.zk_path).then(reply => {
+            await this.zk.exists(this.zk_path).then(reply => {
                 if(reply.stat){
-                    this.zk.delete(this.zk_path).then(() => {
-                        this.zk.close();
+                    return this.zk.delete(this.zk_path).then(() => {
+                        return this.zk.close();
                     });
                 }else{
-                    this.zk.close();
+                    return this.zk.close();
                 }
             })
 
         }else{
-            this.zk.close();
+            await this.zk.close();
         }
 
     }
