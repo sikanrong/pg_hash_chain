@@ -21,6 +21,23 @@ class Cluster{
         process.exit(0);
     }
 
+    apoptosisMonitor () {
+        console.log("Monitoring for signs of shutdown signal...");
+        this.zk.exists(this.zk_path).then(reply => {
+            if(!reply.stat){
+                this.apoptosis();
+            }else{
+                reply.watch.then(event => {
+                    if(event.type == 'deleted'){
+                        this.apoptosis();
+                    }else{
+                        this.apoptosisMonitor()
+                    }
+                });
+            }
+        });
+    }
+
     init () {
         this.zk = new ZooKeeper({
             connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
@@ -29,22 +46,6 @@ class Cluster{
             host_order_deterministic: false
         });
 
-        const apoptosisMonitor = function (event) {
-            if(event.type == 'deleted'){
-                this.apoptosis();
-            }else{
-                this.zk.exists(this.zk_path).then(reply => {
-                    if(!reply.stat){
-                        this.apoptosis();
-                    }else{
-                        reply.watch.then(apoptosisMonitor.bind(this));
-                    }
-                })
-            }
-
-
-        }.bind(this);
-
         this.zk.connect().then(() => {
             console.log ("zk session established, id=%s", this.zk.client_id);
             this.zk.create('/config/node.',
@@ -52,8 +53,7 @@ class Cluster{
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE)
             .then((_path) => {
                 this.zk_path = path;
-
-                apoptosisMonitor();
+                this.apoptosisMonitor();
             });
         });
 
