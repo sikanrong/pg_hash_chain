@@ -24,7 +24,7 @@ class Cluster{
         });
 
         this.zk.connect().then(() => {
-            console.log ("zk session established, id=%s", zk.client_id);
+            console.log ("zk session established, id=%s", this.zk.client_id);
             this.zk.create('/config/node.',
                 JSON.stringify({pid: process.pid, init: true}),
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE)
