@@ -23,7 +23,7 @@ class Cluster{
 
     apoptosisMonitor () {
         console.log("Monitoring for signs of shutdown signal...");
-        this.zk.exists(this.zk_path).then(reply => {
+        this.zk.exists(this.zk_path, true).then(reply => {
             if(!reply.stat){
                 this.apoptosis();
             }else{
