@@ -1,8 +1,8 @@
 import * as fs from "fs";
+import * as path from "path";
 import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
-import * as path from "path";
 
 export default shipit => {
     require('shipit-deploy')(shipit);
@@ -124,16 +124,8 @@ export default shipit => {
                 }
             }).then((reply)=>{
                 return Promise.all(reply.children.map(child => {
-                    return zk.get([_path, child].join('/'))
+                    return zk.delete(path.join('/config', child))
                 }));
-            }).then(async function (results) {
-                let pids = results.map(res => {
-                    return JSON.parse(res.data).pid;
-                });
-
-                for(let pid in pids){
-                    await shipit.remote(`sudo kill ${pid}`);
-                }
             }).then(async () => {
                 await shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
             });

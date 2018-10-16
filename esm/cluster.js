@@ -15,6 +15,12 @@ class Cluster{
         this.init();
     }
 
+    apoptosis(){ //programmed cluster death
+        console.log("Node death requested. %s is shutting down...", this.zk_path)
+        this.closeConnection();
+        process.exit(0);
+    }
+
     init () {
         this.zk = new ZooKeeper({
             connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
@@ -23,6 +29,22 @@ class Cluster{
             host_order_deterministic: false
         });
 
+        const apoptosisMonitor = function (event) {
+            if(event.type == 'deleted'){
+                this.apoptosis();
+            }else{
+                this.zk.exists(this.zk_path).then(reply => {
+                    if(!reply.stat){
+                        this.apoptosis();
+                    }else{
+                        reply.watch.then(apoptosisMonitor.bind(this));
+                    }
+                })
+            }
+
+
+        }.bind(this);
+
         this.zk.connect().then(() => {
             console.log ("zk session established, id=%s", this.zk.client_id);
             this.zk.create('/config/node.',
@@ -30,6 +52,8 @@ class Cluster{
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE)
             .then((_path) => {
                 this.zk_path = path;
+
+                apoptosisMonitor
             });
         });
 
@@ -41,9 +65,21 @@ class Cluster{
     }
 
     closeConnection () {
-        this.zk.delete(this.zk_path, 0).then(() => {
+        if(this.zk_path){
+            this.zk.exists(this.zk_path).then(reply => {
+                if(reply.stat){
+                    this.zk.delete(this.zk_path).then(() => {
+                        this.zk.close();
+                    });
+                }else{
+                    this.zk.close();
+                }
+            })
+
+        }else{
             this.zk.close();
-        });
+        }
+
     }
 
 }
