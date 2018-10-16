@@ -112,10 +112,18 @@ export default shipit => {
         zk.connect().then(() => {
             console.log ("zk session established, id=%s", zk.client_id);
 
-            zk.create('/config', new String(), 0).then((_path) => {
-                return zk.getChildren(_path);
+            zk.exists('/config').then(reply => {
+                return reply.stat;
+            }).then(stat => {
+                if(!stat){
+                    return zk.create('/config', new String(), 0).then((_path) => {
+                        return zk.getChildren(_path);
+                    })
+                }else{
+                    return zk.getChildren('/config');
+                }
             }).then((reply)=>{
-                return Promise.all(reply.data.map(child => {
+                return Promise.all(reply.children.map(child => {
                     return zk.get([_path, child].join('/'))
                 }));
             }).then(async function (results) {
@@ -127,7 +135,7 @@ export default shipit => {
                     await shipit.remote(`sudo kill ${pid}`);
                 }
             }).then(async () => {
-                await shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js`);
+                await shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
             });
 
             const watchInit = function () {
@@ -139,8 +147,6 @@ export default shipit => {
                     console.log(results);
                 });
             }.bind();
-
-            watchInit();
         });
 
         return new Promise(function (resolve, reject) {
