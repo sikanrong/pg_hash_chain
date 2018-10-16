@@ -129,16 +129,7 @@ export default shipit => {
             }).then(async () => {
                 await shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
             });
-
-            const watchInit = function () {
-                zk.getChildren('/config', (reply) => {
-                    return Promise.all(reply.data.map(child => {
-                        return zk.get([_path, child].join('/'))
-                    }));
-                }).then(function (results) {
-                    console.log(results);
-                });
-            }.bind();
+            
         });
 
         return new Promise(function (resolve, reject) {
