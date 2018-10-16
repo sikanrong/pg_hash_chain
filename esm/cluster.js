@@ -52,7 +52,7 @@ class Cluster{
                 JSON.stringify({pid: process.pid, init: true}),
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE)
             .then((_path) => {
-                this.zk_path = path;
+                this.zk_path = _path;
                 this.apoptosisMonitor();
             });
         });
