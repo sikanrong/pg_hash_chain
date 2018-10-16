@@ -8,7 +8,7 @@ import ZooKeeper from "zk";
 //where the master is part of a BDR multi-master setup.
 
 class Cluster{
-    Cluster(){
+    constructor(){
         this.zk_path = null;
         this.zk = null;
 
