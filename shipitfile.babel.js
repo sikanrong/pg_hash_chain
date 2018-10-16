@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
-import {ZooKeeper} from "zookeeper";
+import ZooKeeper from "zk";
 import * as path from "path";
 
 export default shipit => {
@@ -99,51 +99,48 @@ export default shipit => {
         );
     });
 
-    const lauchDaemon = async (dname, app) => {
-        shipit[dname](`
-            if [ -f ${app}/tmp/${dname}.pid ]; then
-                pkill --pidfile ${app}/tmp/${dname}.pid;
-                rm ${app}/tmp/${dname}.pid;
-            fi 
-            nohup node ${app}/cjs/zk_config_daemon/${dname}.js > ${app}/tmp/${dname}.log &
-        `);
-
-        return;
-    };
-
     shipit.task('remote_zk_configure', async () => {
         const zk = new ZooKeeper({
-            connect: `${$config.nodes[0].host}:${$config.zk_client_port}`
+            connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
+            timeout: 20000,
+            debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
+            host_order_deterministic: false
         });
 
-        let zk_node_path = null;
+        let init_promises = [];
 
-        zk.connect(async (err) => {
-            if(err){
-                console.log(`Connection error: '${err}'`);
-                throw err;
-            }
-
+        zk.connect().then(() => {
             console.log ("zk session established, id=%s", zk.client_id);
 
-            zk.mkdirp('/config', function (_e) {
-                if(_e){
-                    throw new Error(_e);
+            zk.create('/config', new String(), 0).then((_path) => {
+                return zk.getChildren(_path);
+            }).then((reply)=>{
+                return Promise.all(reply.data.map(child => {
+                    return zk.get([_path, child].join('/'))
+                }));
+            }).then(async function (results) {
+                let pids = results.map(res => {
+                    return JSON.parse(res.data).pid;
+                });
+
+                for(let pid in pids){
+                    await shipit.remote(`sudo kill ${pid}`);
                 }
-
-                const watchNodes = function(){
-                    zk.aw_get_children('/config', function (type, state, path) { // this is watcher
-                        console.log ("get watcher is triggered: type=%d, state=%d, path=%s", type, state, path);
-                        watchNodes();
-                    }, function (rc, __e, children, stat) {
-                        console.log(`nodes updated: ${children.length}`);
-                    });
-                };
-
-                watchNodes();
-
-                lauchDaemon('remote', `${$config.app_deploy_path}/current`);
+            }).then(async () => {
+                await shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js`);
             });
+
+            const watchInit = function () {
+                zk.getChildren('/config', (reply) => {
+                    return Promise.all(reply.data.map(child => {
+                        return zk.get([_path, child].join('/'))
+                    }));
+                }).then(function (results) {
+                    console.log(results);
+                });
+            }.bind();
+
+            watchInit();
         });
 
         return new Promise(function (resolve, reject) {
