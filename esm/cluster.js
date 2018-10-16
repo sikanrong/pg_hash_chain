@@ -53,7 +53,7 @@ class Cluster{
             .then((_path) => {
                 this.zk_path = path;
 
-                apoptosisMonitor
+                apoptosisMonitor();
             });
         });
 
