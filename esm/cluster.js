@@ -7,7 +7,7 @@ import ZooKeeper from "zk";
 //define a single-master cluster running on a single node,
 //where the master is part of a BDR multi-master setup.
 
-export class Cluster{
+class Cluster{
     Cluster(){
         this.zk_path = null;
         this.zk = null;
@@ -48,3 +48,4 @@ export class Cluster{
 
 }
 
+export default new Cluster();
