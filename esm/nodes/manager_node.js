@@ -4,7 +4,7 @@ import * as $config from "../../cluster";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import StandbyNode from "./standby_node";
-import ZkUtil from "./zk_util";
+import ZkUtil from "../zk_util";
 import {fork} from "child_process";
 import Node from "./node";
 
