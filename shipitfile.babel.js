@@ -84,14 +84,6 @@ export default shipit => {
         await shipit.local("mkdir -p ./tmp");
     });
 
-    shipit.on('deploy', async () => {
-        return shipit.start([
-            'configure-environment',
-            'install-apt-packages',
-            'configure-zookeeper'
-        ]);
-    });
-
     shipit.blTask('install-npm-packages', async () => {
         await shipit.remote(
             `cd ${$config.app_deploy_path}/current; 
@@ -107,12 +99,53 @@ export default shipit => {
             host_order_deterministic: false
         });
 
-        let init_promises = [];
+        const monitorInitialized = () => {
+            const deferreds = {};
+            const _d = Promise.defer();
 
-        zk.connect().then(() => {
+            const monitorChild = (_c) => {
+                zk.get(path.join('/config', _c), true).then(reply => {
+                    const _d = JSON.parse(reply.data);
+                    if(_d.initialized)
+                        deferreds[_c].resolve();
+
+                    reply.watch.then((event) => {
+                        if(event.type == 'deleted'){
+                            deferreds[_c].reject('deleted');
+                        }
+                        monitorChild(_c);
+                    });
+                });
+            };
+
+            zk.getChildren('/config', true).then((reply) => {
+                reply.children.forEach(child => {
+                    if(deferreds[child])
+                        return;
+
+                    deferreds[child] = Promise.defer();
+                    monitorChild(child);
+                });
+
+                if(Object.keys(deferreds).length == $config.nodes.length){
+
+                    Promise.all(Object.keys(deferreds).map(_k => {
+                        return deferreds[_k].promise;
+                    })).then(_d.resolve);
+                }
+
+                reply.watch.then(event => {
+                    monitorInitialized();
+                })
+            });
+
+            return _d.promise;
+        };
+
+        return zk.connect().then(() => {
             console.log ("zk session established, id=%s", zk.client_id);
 
-            zk.exists('/config').then(reply => {
+            return zk.exists('/config').then(reply => {
                 return reply.stat;
             }).then(stat => {
                 if(!stat){
@@ -126,20 +159,25 @@ export default shipit => {
                 return Promise.all(reply.children.map(child => {
                     return zk.delete(path.join('/config', child))
                 }));
-            }).then(async () => {
-                await shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
-            });
-            
-        });
-
-        return new Promise(function (resolve, reject) {
-            zk.on(ZooKeeper.on_closed, function (zkk, clientid) {
-                resolve();
+            }).then(() => {
+                shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
+                return;
+            }).then(() => {
+                return monitorInitialized();
+            }).then(() => {
+                zk.close();
             });
         });
 
     });
 
+    shipit.on('deploy', async () => {
+        return shipit.start([
+            'configure-environment',
+            'install-apt-packages',
+            'configure-zookeeper'
+        ]);
+    });
 
     shipit.on('deployed', async () => {
         return shipit.start([
