@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import * as $config from "../cluster";
+import * as $config from "../../cluster";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import StandbyNode from "./standby_node";
