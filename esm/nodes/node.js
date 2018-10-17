@@ -39,24 +39,11 @@ export default class Node {
     }
 
     async closeConnection () {
-        if(this.zk_path){
-            await this.zk.exists(this.zk_path).then(reply => {
-                if(reply.stat){
-                    return this.zk.delete(this.zk_path).then(() => {
-                        return this.zk.close();
-                    }, ()=>{
-                        console.warn(`Could not delete on close: ${this.zk_path}`);
-                    });
-                }else{
-                    return this.zk.close();
-                }
-            }, async () => {
-                await this.zk.close();
-            })
+        await this.zk.delete(this.zk_path).then(()=>{}, reason => {
+            console.warn(`Could not delete ${this.zk_path}: ${reason}`);
+        });
 
-        }else{
-            await this.zk.close();
-        }
+        this.zk.close();
 
     }
 

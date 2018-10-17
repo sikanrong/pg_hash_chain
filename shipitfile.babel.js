@@ -111,10 +111,14 @@ export default shipit => {
                 return q.all(reply.children.map(_child => {
                     return zk.getChildren(path.join('/config', _child)).then(async reply => {
                         reply.children.forEach(async __child => {
-                            await zk.delete(path.join('/config', _child, __child));
+                            await zk.delete(path.join('/config', _child, __child)).then(() => {}, reason => {
+                                console.warn(`Cannot delete ${path.join('/config', _child, __child)}: ${reason}`);
+                            });
                         });
 
-                        await zk.delete(path.join('/config', _child));
+                        await zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
+                            console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
+                        });
                     });
                 }));
             }).then(() => {
