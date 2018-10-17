@@ -18,12 +18,7 @@ class ManagerNode extends Node{
     init () {
         super.init();
 
-        this.zk = new ZooKeeper({
-            connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
-            timeout: 20000,
-            debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
-            host_order_deterministic: false
-        });
+        this.zk = ZkUtil.configZookeeper();
 
         this.zk.connect().then(async () => {
             console.log ("zk session established, id=%s", this.zk.client_id);
@@ -32,7 +27,7 @@ class ManagerNode extends Node{
                 ZooKeeper.ZOO_SEQUENCE)
                 .then(async (_path) => {
 
-                    await this.zk.create(path.join(_path, 'master_lock')).then(()=>{}, (reason)=>{
+                    await this.zk.create(path.join(_path, 'master_lock'), JSON.stringify({initialized: false})).then(()=>{}, (reason)=>{
                         throw new Error(`Could not create ${path.join(_path, 'master_lock')}: ${reason}`);
                     });
 
