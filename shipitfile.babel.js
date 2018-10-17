@@ -3,6 +3,7 @@ import * as path from "path";
 import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
+import ZkUtil from "./cjs/zk_util.js"
 
 export default shipit => {
     require('shipit-deploy')(shipit);
@@ -92,55 +93,7 @@ export default shipit => {
     });
 
     shipit.task('remote_zk_configure', async () => {
-        const zk = new ZooKeeper({
-            connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
-            timeout: 20000,
-            debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
-            host_order_deterministic: false
-        });
-
-        const monitorInitialized = () => {
-            const deferreds = {};
-            const _d = Promise.defer();
-
-            const monitorChild = (_c) => {
-                zk.get(path.join('/config', _c), true).then(reply => {
-                    const _d = JSON.parse(reply.data);
-                    if(_d.initialized)
-                        deferreds[_c].resolve();
-
-                    reply.watch.then((event) => {
-                        if(event.type == 'deleted'){
-                            deferreds[_c].reject('deleted');
-                        }
-                        monitorChild(_c);
-                    });
-                });
-            };
-
-            zk.getChildren('/config', true).then((reply) => {
-                reply.children.forEach(child => {
-                    if(deferreds[child])
-                        return;
-
-                    deferreds[child] = Promise.defer();
-                    monitorChild(child);
-                });
-
-                if(Object.keys(deferreds).length == $config.nodes.length){
-
-                    Promise.all(Object.keys(deferreds).map(_k => {
-                        return deferreds[_k].promise;
-                    })).then(_d.resolve);
-                }
-
-                reply.watch.then(event => {
-                    monitorInitialized();
-                })
-            });
-
-            return _d.promise;
-        };
+        const zk = ZkUtil.configZookeeper();
 
         return zk.connect().then(() => {
             console.log ("zk session established, id=%s", zk.client_id);
@@ -160,10 +113,10 @@ export default shipit => {
                     return zk.delete(path.join('/config', child))
                 }));
             }).then(() => {
-                shipit.remote(`nohup node --inspect ${$config.app_deploy_path}/current/cjs/cluster.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
+                shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/bdr_node.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
                 return;
             }).then(() => {
-                return monitorInitialized();
+                return ZkUtil.monitorInitialized('/config', zk);
             }).then(() => {
                 zk.close();
             });

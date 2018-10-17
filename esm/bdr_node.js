@@ -1,16 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
-import * as $config from "../cluster.json";
+import * as $config from "../cluster";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
+import StandbyNode from "./standby_node";
+import ZkUtil from "./zk_util";
+import {spawn} from "child_process";
 
-//define a single-master cluster running on a single node,
-//where the master is part of a BDR multi-master setup.
-
-class Cluster{
-    constructor(){
+export default class BDRNode{
+    constructor(cluster_ctl){
         this.zk_path = null;
         this.zk = null;
+        this.cluster_ctl = cluster_ctl;
 
         this.init();
     }
@@ -51,10 +52,24 @@ class Cluster{
             this.zk.create('/config/node.',
                 JSON.stringify({pid: process.pid, initialized: false}),
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE)
-            .then((_path) => {
-                this.zk_path = _path;
-                this.apoptosisMonitor();
-            });
+                .then((_path) => {
+                    this.zk_path = _path;
+                    this.apoptosisMonitor();
+
+                    //spin up the standby nodes...
+                    for(let i = 0; i < $config.pg_slave_count + 1; i++){ //one more sub-node created (will be master)
+                        let cp = spawn('node --inspect=9229 cjs/standby_node.js');
+                        cp.send(_path);
+                    }
+
+                    ZkUtil.monitorInitialized(_path, this.zk).then(async () => {
+                        await zk.get(_path).then(async (reply) => {
+                            let _o = JSON.parse(reply.data);
+                            _o.initialized = true;
+                            await zk.set(_path, JSON.stringify(_o), -1);
+                        });
+                    });
+                });
         });
 
         process.on('exit', this.closeConnection.bind(this));
@@ -84,4 +99,4 @@ class Cluster{
 
 }
 
-export default new Cluster();
+new BDRNode();
