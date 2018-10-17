@@ -58,7 +58,7 @@ export default class BDRNode{
 
                     //spin up the standby nodes...
                     for(let i = 0; i < $config.pg_slave_count + 1; i++){ //one more sub-node created (will be master)
-                        let cp = spawn('node --inspect=9229 cjs/standby_node.js');
+                        let cp = spawn(`node --inspect=9229 ${path.join(__dirname, 'standby_node.js')}`);
                         cp.send(_path);
                     }
 
