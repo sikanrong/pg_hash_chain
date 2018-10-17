@@ -7,7 +7,7 @@ const ZKUtil = {
     configZookeeper: function () {
         return new ZooKeeper({
             connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
-            timeout: 20000,
+            timeout: 200000,
             debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
             host_order_deterministic: false
         });
