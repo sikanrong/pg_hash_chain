@@ -1,5 +1,6 @@
 import q from "q";
 import * as $config from "../../cluster";
+import Node from "./node"
 
 class DeploymentNode extends Node{
     constructor(){
