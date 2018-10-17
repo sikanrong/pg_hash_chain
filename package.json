@@ -29,7 +29,8 @@
     "shipit-deploy": "^4.1.1",
     "pg": "^7.5.0",
     "express": "^4.16.4",
-    "handlebars": "^4.0.12"
+    "handlebars": "^4.0.12",
+    "q": "^1.5.1"
   },
   "author": "Alexander Pilafian",
   "license": "GPL-3.0",

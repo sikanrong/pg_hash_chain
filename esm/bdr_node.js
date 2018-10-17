@@ -5,7 +5,7 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import StandbyNode from "./standby_node";
 import ZkUtil from "./zk_util";
-import {spawn} from "child_process";
+import {fork} from "child_process";
 
 export default class BDRNode{
     constructor(cluster_ctl){
@@ -58,7 +58,9 @@ export default class BDRNode{
 
                     //spin up the standby nodes...
                     for(let i = 0; i < $config.pg_slave_count + 1; i++){ //one more sub-node created (will be master)
-                        let cp = spawn(`node --inspect=9229 ${path.join(__dirname, 'standby_node.js')}`);
+                        let cp = fork(path.join(__dirname, 'standby_node.js'), undefined, {
+                            execArgv: "--inspect=9229"
+                        });
                         cp.send(_path);
                     }
 

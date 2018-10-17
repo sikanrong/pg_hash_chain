@@ -1,6 +1,7 @@
 import * as $config from "../cluster.json"
 import ZooKeeper from "zk";
 import * as path from "path";
+import q from "q";
 
 const ZKUtil = {
     configZookeeper: function () {
@@ -17,7 +18,7 @@ const ZKUtil = {
 
     monitorInitialized: (_p, zk) => {
         const deferreds = {};
-        const _d = Promise.defer();
+        const _d = q.defer();
 
         const monitorChild = (_c) => {
             zk.get(path.join(_p, _c), true).then(reply => {
