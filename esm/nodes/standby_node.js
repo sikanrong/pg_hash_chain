@@ -2,7 +2,6 @@ import * as fs from "fs";
 import * as path from "path";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
-import ZkUtil from "../zk_util"
 import * as $config from "../../cluster";
 import Node from "./node";
 

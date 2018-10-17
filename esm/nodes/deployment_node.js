@@ -1,47 +1,49 @@
 import q from "q";
 import * as $config from "../../cluster";
-import Node from "./node"
+import * as path from "path";
+import Node from "./node";
 
-class DeploymentNode extends Node{
-    constructor(){
+export default class DeploymentNode extends Node{
+    constructor(spawn_remote){
         super();
         this.zk_path = '/config';
+        this.spawn_remote = spawn_remote;
         this.init_promise = this.init();
     }
 
     init(){
-        return zk.connect().then(async () => {
-            console.log ("zk session established, id=%s", zk.client_id);
+        return this.zk.connect().then(async () => {
+            console.log ("zk session established, id=%s", this.zk.client_id);
 
-            await zk.create('/lock').then(()=>{}, reason=>{
+            await this.zk.create('/lock').then(()=>{}, reason=>{
                 console.warn(`Could not create root-level /lock node: ${reason}`);
             });
 
-            await zk.create('/config').then(()=>{}, reason=>{
+            await this.zk.create('/config').then(()=>{}, reason=>{
                 console.warn(`Could not create root-level /config node: ${reason}`);
             });
 
-            return zk.getChildren('/config').then((reply)=>{
+            return this.zk.getChildren('/config').then((reply)=>{
                 return q.all(reply.children.map(_child => {
-                    return zk.getChildren(path.join('/config', _child)).then(async reply => {
+                    return this.zk.getChildren(path.join('/config', _child)).then(async reply => {
                         reply.children.forEach(async __child => {
-                            await zk.delete(path.join('/config', _child, __child)).then(() => {}, reason => {
+                            await this.zk.delete(path.join('/config', _child, __child)).then(() => {}, reason => {
                                 console.warn(`Cannot delete ${path.join('/config', _child, __child)}: ${reason}`);
                             });
                         });
 
-                        await zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
+                        await this.zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
                             console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
                         });
                     });
                 }));
             }).then(() => {
-                shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js > ${$config.app_deploy_path}/current/tmp/manager.log &`);
+                this.spawn_remote();
                 return true;
             }).then(() => {
                 return this.monitorInitialized($config.nodes.length);
             }).then(() => {
-                zk.close();
+                this.zk.close();
             });
         });
     }
