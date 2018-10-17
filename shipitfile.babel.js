@@ -3,7 +3,6 @@ import * as path from "path";
 import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
-import ZkUtil from "./esm/zk_util";
 import q from "q";
 import DeploymentNode from "./esm/nodes/deployment_node";
 
