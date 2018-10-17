@@ -44,12 +44,14 @@ export default class Node {
                 if(reply.stat){
                     return this.zk.delete(this.zk_path).then(() => {
                         return this.zk.close();
+                    }, ()=>{
+                        console.warn(`Could not delete on close: ${this.zk_path}`);
                     });
                 }else{
                     return this.zk.close();
                 }
             }, () => {
-                this.zk.close();
+                await this.zk.close();
             })
 
         }else{

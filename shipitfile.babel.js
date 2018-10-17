@@ -96,20 +96,18 @@ export default shipit => {
     shipit.task('remote_zk_configure', async () => {
         const zk = ZkUtil.configZookeeper();
 
-        return zk.connect().then(() => {
+        return zk.connect().then(async () => {
             console.log ("zk session established, id=%s", zk.client_id);
 
-            return zk.exists('/config').then(reply => {
-                return reply.stat;
-            }).then(stat => {
-                if(!stat){
-                    return zk.create('/config', new String(), 0).then((_path) => {
-                        return zk.getChildren(_path);
-                    })
-                }else{
-                    return zk.getChildren('/config');
-                }
-            }).then((reply)=>{
+            await zk.create('/lock').then(()=>{}, reason=>{
+                console.warn(`Could not create root-level /lock node: ${reason}`);
+            });
+
+            await zk.create('/config').then(()=>{}, reason=>{
+                console.warn(`Could not create root-level /config node: ${reason}`);
+            });
+
+            return zk.getChildren('/config').then((reply)=>{
                 return q.all(reply.children.map(_child => {
                     return zk.getChildren(path.join('/config', _child)).then(async reply => {
                         reply.children.forEach(async __child => {

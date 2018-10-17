@@ -28,7 +28,7 @@ class ManagerNode extends Node{
                 .then(async (_path) => {
 
                     // await this.zk.create(path.join(_path, 'master_lock'), JSON.stringify({initialized: false})).then(()=>{}, (reason)=>{
-                    //     throw new Error(`Could not create ${path.join(_path, 'master_lock')}: ${reason}`);
+                    //     console.warn(`Could not create ${path.join(_path, 'master_lock')}: ${reason}`);
                     // });
 
                     this.zk_path = _path;
