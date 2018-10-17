@@ -2,7 +2,7 @@ import * as $config from "../cluster.json"
 import ZooKeeper from "zk";
 import * as path from "path";
 
-export default {
+const ZKUtil = {
     configZookeeper: function () {
         return new ZooKeeper({
             connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
@@ -51,10 +51,12 @@ export default {
             }
 
             reply.watch.then(event => {
-                this.monitorInitialized(_p, zk);
+                ZKUtil.monitorInitialized(_p, zk);
             })
         });
 
         return _d.promise;
     }
-}
+};
+
+export default ZKUtil;
