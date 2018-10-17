@@ -40,13 +40,13 @@ const ZKUtil = {
                 if(deferreds[child])
                     return;
 
-                deferreds[child] = Promise.defer();
+                deferreds[child] = q.defer();
                 monitorChild(child);
             });
 
             if(Object.keys(deferreds).length == $config.nodes.length){
 
-                Promise.all(Object.keys(deferreds).map(_k => {
+                q.all(Object.keys(deferreds).map(_k => {
                     return deferreds[_k].promise;
                 })).then(_d.resolve);
             }

@@ -3,7 +3,8 @@ import * as path from "path";
 import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
-import ZkUtil from "./cjs/zk_util.js"
+import ZkUtil from "./cjs/zk_util.js";
+import q from "q";
 
 export default shipit => {
     require('shipit-deploy')(shipit);
@@ -109,7 +110,7 @@ export default shipit => {
                     return zk.getChildren('/config');
                 }
             }).then((reply)=>{
-                return Promise.all(reply.children.map(child => {
+                return q.all(reply.children.map(child => {
                     return zk.delete(path.join('/config', child))
                 }));
             }).then(() => {
@@ -124,18 +125,35 @@ export default shipit => {
 
     });
 
-    shipit.on('deploy', async () => {
-        return shipit.start([
-            'configure-environment',
-            'install-apt-packages',
-            'configure-zookeeper'
-        ]);
+    shipit.blTask('build-esm', async () => {
+        await shipit.remote(`
+            cd ${$config.app_deploy_path}/current;
+            npm run build;
+        `);
     });
 
     shipit.on('deployed', async () => {
         return shipit.start([
-            'install-npm-packages',
-            'remote_zk_configure'
+            'build-esm'
         ]);
+    });
+
+    shipit.task('build', async () => {
+        shipit.on('deploy', async () => {
+            return shipit.start([
+                'configure-environment',
+                'install-apt-packages',
+                'configure-zookeeper'
+            ]);
+        });
+
+        shipit.on('deployed', async () => {
+            return shipit.start([
+                'install-npm-packages',
+                'remote_zk_configure'
+            ]);
+        });
+
+        shipit.start('deploy');
     });
 }
