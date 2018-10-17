@@ -3,7 +3,7 @@ import * as path from "path";
 import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
-import ZkUtil from "./cjs/zk_util.js";
+import ZkUtil from "./esm/zk_util";
 import q from "q";
 
 export default shipit => {
@@ -123,7 +123,7 @@ export default shipit => {
                 }));
             }).then(() => {
                 shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js > ${$config.app_deploy_path}/current/tmp/manager.log &`);
-                return;
+                return true;
             }).then(() => {
                 return ZkUtil.monitorInitialized('/config', zk);
             }).then(() => {
