@@ -113,7 +113,7 @@ export default shipit => {
                     return zk.delete(path.join('/config', child))
                 }));
             }).then(() => {
-                shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/bdr_node.js > ${$config.app_deploy_path}/current/tmp/cluster.log &`);
+                shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js > ${$config.app_deploy_path}/current/tmp/manager.log &`);
                 return;
             }).then(() => {
                 return ZkUtil.monitorInitialized('/config', zk);
