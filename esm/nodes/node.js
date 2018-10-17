@@ -6,12 +6,6 @@ export default class Node {
         this.pid = process.pid;
     }
 
-    init(){
-        process.on('exit', this.closeConnection.bind(this));
-        process.on('SIGINT', this.closeConnection.bind(this));
-        process.on('SIGUSR1', this.closeConnection.bind(this));
-        process.on('SIGUSR2', this.closeConnection.bind(this));
-    }
 
     async apoptosis(){ //programmed cluster death
         console.log("Node death requested. %s is shutting down...", this.zk_path);
@@ -36,15 +30,6 @@ export default class Node {
         }, () => {
             this.apoptosis();
         });
-    }
-
-    async closeConnection () {
-        await this.zk.delete(this.zk_path).then(()=>{}, reason => {
-            console.warn(`Could not delete ${this.zk_path}: ${reason}`);
-        });
-
-        this.zk.close();
-
     }
 
 }

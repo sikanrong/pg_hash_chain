@@ -16,8 +16,6 @@ class ManagerNode extends Node{
     }
 
     init () {
-        super.init();
-
         this.zk = ZkUtil.configZookeeper();
 
         this.zk.connect().then(async () => {
