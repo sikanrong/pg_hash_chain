@@ -40,7 +40,7 @@ class ManagerNode extends Node{
                         cp.send(_path);
                     }
 
-                    ZkUtil.monitorInitialized($config.pg_slave_count + 1).then(async () => {
+                    this.monitorInitialized($config.pg_slave_count + 1).then(async () => {
                         await zk.get(_path).then(async (reply) => {
                             let _o = JSON.parse(reply.data);
                             _o.initialized = true;

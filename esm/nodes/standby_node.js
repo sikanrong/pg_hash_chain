@@ -18,8 +18,6 @@ class StandbyNode extends Node{
     }
 
     async init(){
-        this.zk = ZkUtil.configZookeeper();
-
         await this.zk.connect().then(() => {
             return this.zk.create(
                 path.join(this.zk_parent_path, 'subnode.'),
