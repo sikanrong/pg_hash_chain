@@ -33,35 +33,35 @@ class StandbyNode extends Node{
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE
             ).then(async _path => {
                 this.zk_path = _path;
-                const _lock_path = await this.zk.create(
-                    path.join(this.zk_parent_path, 'master_lock', 'lock.'),
-                    new String(),
-                    ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE );
-
-
-                await this.zk.getChildren(path.join(this.zk_parent_path, 'master_lock')).then(reply => {
-                    const sorted_locks = reply.children.sort();
-                    const mylock_idx = sorted_locks.indexOf(path.basename(_lock_path));
-                    if(mylock_idx > 0){
-                        //I don't have the lock :(
-                        const _prev_lock_path = path.join(path.dirname(_lock_path), sorted_locks[mylock_idx - 1]);
-                        this.zk.exists(_prev_lock_path, true).then(
-                            reply => {
-                                reply.watch.then((event) => {
-                                    if(event.type == 'deleted'){
-                                        //This node is the new master!
-                                        console.log(`Node (pid: ${this.pid}) ${this.zk_path} is now being promoted to MASTER.`);
-                                        this.is_master = true;
-                                    }
-                                });
-                            },
-                            reason => {
-                                throw new Error(`Unable to wait for : ${reason}`)
-                            });
-                    }
-
-                    //otherwise, the lock is mine and I just exit the protocol
-                });
+                // const _lock_path = await this.zk.create(
+                //     path.join(this.zk_parent_path, 'master_lock', 'lock.'),
+                //     new String(),
+                //     ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE );
+                //
+                //
+                // await this.zk.getChildren(path.join(this.zk_parent_path, 'master_lock')).then(reply => {
+                //     const sorted_locks = reply.children.sort();
+                //     const mylock_idx = sorted_locks.indexOf(path.basename(_lock_path));
+                //     if(mylock_idx > 0){
+                //         //I don't have the lock :(
+                //         const _prev_lock_path = path.join(path.dirname(_lock_path), sorted_locks[mylock_idx - 1]);
+                //         this.zk.exists(_prev_lock_path, true).then(
+                //             reply => {
+                //                 reply.watch.then((event) => {
+                //                     if(event.type == 'deleted'){
+                //                         //This node is the new master!
+                //                         console.log(`Node (pid: ${this.pid}) ${this.zk_path} is now being promoted to MASTER.`);
+                //                         this.is_master = true;
+                //                     }
+                //                 });
+                //             },
+                //             reason => {
+                //                 throw new Error(`Unable to wait for : ${reason}`)
+                //             });
+                //     }
+                //
+                //     //otherwise, the lock is mine and I just exit the protocol
+                // });
             }).then(this.apoptosisMonitor.bind(this));
         });
     }
