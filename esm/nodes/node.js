@@ -9,7 +9,7 @@ export default class Node {
 
     apoptosis(){ //programmed cluster death
         console.log("Node death requested. %s is shutting down...", this.zk_path);
-        process.kill();
+        process.kill(process.pid);
     }
 
     apoptosisMonitor () {
