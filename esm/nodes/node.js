@@ -7,9 +7,9 @@ export default class Node {
     }
 
 
-    async apoptosis(){ //programmed cluster death
+    apoptosis(){ //programmed cluster death
         console.log("Node death requested. %s is shutting down...", this.zk_path);
-        process.exit(0);
+        process.kill();
     }
 
     apoptosisMonitor () {
