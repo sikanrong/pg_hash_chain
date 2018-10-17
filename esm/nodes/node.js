@@ -50,7 +50,7 @@ export default class Node {
                 }else{
                     return this.zk.close();
                 }
-            }, () => {
+            }, async () => {
                 await this.zk.close();
             })
 
