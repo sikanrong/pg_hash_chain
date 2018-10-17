@@ -51,7 +51,7 @@ export default {
             }
 
             reply.watch.then(event => {
-                monitorInitialized();
+                this.monitorInitialized(_p, zk);
             })
         });
 
