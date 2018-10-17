@@ -56,8 +56,11 @@ export default class BDRNode{
                 ZooKeeper.ZOO_SEQUENCE)
                 .then(async (_path) => {
 
-                    await this.zk.delete(path.join(_path, 'master_lock'));
-                    await this.zk.delete(path.join(_path, 'master_active'));
+                    //Delete these two keys whether or not they exist
+                    //more advanced failure handling would be necessary to detect if these requests
+                    //are rejected by the zookeeper server for other reasons than existence.
+                    await this.zk.delete(path.join(_path, 'master_lock')).then(()=>{}, ()=>{});
+                    await this.zk.delete(path.join(_path, 'master_active')).then(()=>{}, ()=>{});
 
                     this.zk_path = _path;
                     this.apoptosisMonitor();
