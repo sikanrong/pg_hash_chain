@@ -16,8 +16,6 @@ class ManagerNode extends Node{
     }
 
     init () {
-        this.zk = ZkUtil.configZookeeper();
-
         this.zk.connect().then(async () => {
             console.log ("zk session established, id=%s", this.zk.client_id);
             this.zk.create('/config/node.',
@@ -43,7 +41,7 @@ class ManagerNode extends Node{
                         cp.send(_path);
                     }
 
-                    ZkUtil.monitorInitialized(_path, this.zk).then(async () => {
+                    ZkUtil.monitorInitialized($config.pg_slave_count + 1).then(async () => {
                         await zk.get(_path).then(async (reply) => {
                             let _o = JSON.parse(reply.data);
                             _o.initialized = true;

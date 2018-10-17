@@ -5,6 +5,7 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import ZkUtil from "./esm/zk_util";
 import q from "q";
+import DeploymentNode from "./esm/nodes/deployment_node";
 
 export default shipit => {
     require('shipit-deploy')(shipit);
@@ -94,43 +95,8 @@ export default shipit => {
     });
 
     shipit.task('remote_zk_configure', async () => {
-        const zk = ZkUtil.configZookeeper();
-
-        return zk.connect().then(async () => {
-            console.log ("zk session established, id=%s", zk.client_id);
-
-            await zk.create('/lock').then(()=>{}, reason=>{
-                console.warn(`Could not create root-level /lock node: ${reason}`);
-            });
-
-            await zk.create('/config').then(()=>{}, reason=>{
-                console.warn(`Could not create root-level /config node: ${reason}`);
-            });
-
-            return zk.getChildren('/config').then((reply)=>{
-                return q.all(reply.children.map(_child => {
-                    return zk.getChildren(path.join('/config', _child)).then(async reply => {
-                        reply.children.forEach(async __child => {
-                            await zk.delete(path.join('/config', _child, __child)).then(() => {}, reason => {
-                                console.warn(`Cannot delete ${path.join('/config', _child, __child)}: ${reason}`);
-                            });
-                        });
-
-                        await zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
-                            console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
-                        });
-                    });
-                }));
-            }).then(() => {
-                shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js > ${$config.app_deploy_path}/current/tmp/manager.log &`);
-                return true;
-            }).then(() => {
-                return ZkUtil.monitorInitialized('/config', zk);
-            }).then(() => {
-                zk.close();
-            });
-        });
-
+        const _n = new DeploymentNode();
+        return _n.init_promise;
     });
 
     shipit.blTask('build-esm', async () => {
