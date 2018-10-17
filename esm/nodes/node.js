@@ -1,5 +1,6 @@
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
+import * as path from "path";
 import q from "q";
 
 export default class Node {
