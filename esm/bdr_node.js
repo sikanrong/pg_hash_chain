@@ -36,6 +36,8 @@ export default class BDRNode{
                     }
                 });
             }
+        }, () => {
+            this.apoptosis();
         });
     }
 
@@ -47,19 +49,26 @@ export default class BDRNode{
             host_order_deterministic: false
         });
 
-        this.zk.connect().then(() => {
+        this.zk.connect().then(async () => {
             console.log ("zk session established, id=%s", this.zk.client_id);
             this.zk.create('/config/node.',
                 JSON.stringify({pid: process.pid, initialized: false}),
-                ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE)
-                .then((_path) => {
+                ZooKeeper.ZOO_SEQUENCE)
+                .then(async (_path) => {
+
+                    await this.zk.delete(path.join(_path, 'master_lock'));
+                    await this.zk.delete(path.join(_path, 'master_active'));
+
                     this.zk_path = _path;
                     this.apoptosisMonitor();
 
                     //spin up the standby nodes...
                     for(let i = 0; i < $config.pg_slave_count + 1; i++){ //one more sub-node created (will be master)
-                        let cp = fork(path.join(__dirname, 'standby_node.js'), undefined, {
-                            execArgv: "--inspect=9229"
+                        let cp = fork(path.join(__dirname, 'standby_node.js'), [
+                            `db_port=${$config.pg_port_start + i}`,
+                            `app_port=${$config.app_port_start + i}`
+                        ], {
+                            execArgv: [`--inspect=${$config.app_debug_port_start + i}`]
                         });
                         cp.send(_path);
                     }
@@ -91,6 +100,8 @@ export default class BDRNode{
                 }else{
                     return this.zk.close();
                 }
+            }, () => {
+                this.zk.close();
             })
 
         }else{

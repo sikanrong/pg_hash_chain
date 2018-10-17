@@ -23,8 +23,7 @@
     "/usr/lib/postgresql/9.4/bin"
   ],
 
-  "pg_master_port": 5598,
-  "pg_slave_port_start": 5599,
+  "pg_port_start": 5598,
   "pg_slave_count": 4,
   "pg_cluster_path": "~/pg_bdr_cluster",
   "pg_wal_archive_path": "~/pg_bdr_cluster/wal_archive",
@@ -37,6 +36,7 @@
   "zk_datadir": "/var/lib/zookeeper",
 
   "app_port_start": 8080,
+  "app_debug_port_start": 9229,
   "app_deploy_path": "~/hash_chain",
   "app_deploy_from": "file:///var/www/pg_hash_chain",
 
