@@ -49,7 +49,7 @@ class Cluster{
         this.zk.connect().then(() => {
             console.log ("zk session established, id=%s", this.zk.client_id);
             this.zk.create('/config/node.',
-                JSON.stringify({pid: process.pid, init: true}),
+                JSON.stringify({pid: process.pid, initialized: false}),
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE)
             .then((_path) => {
                 this.zk_path = _path;
