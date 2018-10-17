@@ -94,6 +94,7 @@ export default shipit => {
     });
 
     shipit.task('remote_zk_configure', async () => {
+        await shipit.remote('killall node');
         const _n = new DeploymentNode(()=>{
             return shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js > ${$config.app_deploy_path}/current/tmp/manager.log &`);
         });

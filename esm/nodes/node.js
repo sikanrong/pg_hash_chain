@@ -53,8 +53,8 @@ export default class Node {
 
         const monitorChild = (_c) => {
             this.zk.get(path.join(this.zk_path, _c), true).then(reply => {
-                const _d = JSON.parse(reply.data);
-                if(_d.initialized)
+                const _data = JSON.parse(reply.data);
+                if(_data.initialized)
                     deferreds[_c].resolve();
 
                 reply.watch.then((event) => {
