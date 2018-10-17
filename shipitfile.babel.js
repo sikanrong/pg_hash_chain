@@ -110,8 +110,14 @@ export default shipit => {
                     return zk.getChildren('/config');
                 }
             }).then((reply)=>{
-                return q.all(reply.children.map(child => {
-                    return zk.delete(path.join('/config', child))
+                return q.all(reply.children.map(_child => {
+                    return zk.getChildren(path.join('/config', _child)).then(async reply => {
+                        reply.children.forEach(async __child => {
+                            await zk.delete(path.join('/config', _child, __child));
+                        });
+
+                        await zk.delete(path.join('/config', _child));
+                    });
                 }));
             }).then(() => {
                 shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js > ${$config.app_deploy_path}/current/tmp/manager.log &`);
