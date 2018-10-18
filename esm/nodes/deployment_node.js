@@ -25,7 +25,8 @@ export default class DeploymentNode extends Node{
 
             return this.zk.getChildren('/config').then(async (reply)=>{
                 reply.children.forEach(async _child => {
-                    await this.zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
+                    const reply = await this.zk.get(path.join('/config', _child));
+                    await this.zk.delete(path.join('/config', _child), reply.stat.version + 1).then(()=>{}, reason => {
                         console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
                     });
                 });
