@@ -10,10 +10,10 @@ export default class Node {
         this.zk = this.configZookeeper();
         this.pid = process.pid;
 
-        process.on("exit", this.zk.close);
-        process.on("SIGINT", this.zk.close);
-        process.on("SIGUSR1", this.zk.close);
-        process.on("SIGUSR2", this.zk.close);
+        process.on("exit", ()=>{this.zk.close()});
+        process.on("SIGINT", ()=>{this.zk.close()});
+        process.on("SIGUSR1", ()=>{this.zk.close()});
+        process.on("SIGUSR2", ()=>{this.zk.close()});
     }
 
     apoptosis(){ //programmed cluster death
