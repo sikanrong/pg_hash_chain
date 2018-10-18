@@ -94,11 +94,14 @@ export default shipit => {
     });
 
     shipit.task('remote_zk_configure', async () => {
-        await shipit.remote(`killall node || echo "no process was running"`);
         const _n = new DeploymentNode(()=>{
             return shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js > ${$config.app_deploy_path}/current/tmp/manager.log &`);
         });
-        return _n.init_promise;
+
+
+        return _n.init_promise.then(async ()=> {
+            await shipit.remote(`killall node || echo "No node process running"`);
+        });
     });
 
     shipit.blTask('build-esm', async () => {
