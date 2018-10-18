@@ -44,7 +44,7 @@ class ManagerNode extends Node{
                     const watchChildren = () => {
                         this.zk.getChildren('/config', true).then(async reply =>{
                             const matching_children = reply.children.filter(child => {
-                                return child.indexOf(path.basename(this.zk_path))
+                                return (child.indexOf(path.basename(this.zk_path)) != -1);
                             });
 
                             if(matching_children.length == (2 + $config.pg_slave_count)){
