@@ -25,23 +25,15 @@ export default class DeploymentNode extends Node{
 
             return this.zk.getChildren('/config').then((reply)=>{
                 return q.all(reply.children.map(_child => {
-                    return this.zk.getChildren(path.join('/config', _child)).then(async reply => {
-                        reply.children.forEach(async __child => {
-                            await this.zk.delete(path.join('/config', _child, __child)).then(() => {}, reason => {
-                                console.warn(`Cannot delete ${path.join('/config', _child, __child)}: ${reason}`);
-                            });
-                        });
-
-                        await this.zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
-                            console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
-                        });
+                    return this.zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
+                        console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
                     });
                 }));
             }).then(() => {
                 this.spawn_remote();
                 return true;
             }).then(() => {
-                return this.monitorInitialized($config.nodes.length);
+                return this.monitorInitialized($config.nodes.length + ($config.nodes.length * ($config.pg_slave_count + 1)));
             }).then(() => {
                 this.zk.close();
             });

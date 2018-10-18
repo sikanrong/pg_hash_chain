@@ -19,7 +19,7 @@ class ManagerNode extends Node{
             console.log ("zk session established, id=%s", this.zk.client_id);
             this.zk.create('/config/node.',
                 JSON.stringify({pid: process.pid, initialized: false}),
-                ZooKeeper.ZOO_SEQUENCE)
+                ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)
                 .then(async (_path) => {
 
                     // await this.zk.create(path.join(_path, 'master_lock'), JSON.stringify({initialized: false})).then(()=>{}, (reason)=>{
@@ -39,14 +39,6 @@ class ManagerNode extends Node{
                         });
                         cp.send(_path);
                     }
-
-                    this.monitorInitialized($config.pg_slave_count + 1).then(async () => {
-                        await zk.get(_path).then(async (reply) => {
-                            let _o = JSON.parse(reply.data);
-                            _o.initialized = true;
-                            await zk.set(_path, JSON.stringify(_o), -1);
-                        });
-                    });
                 });
         });
 
