@@ -2,14 +2,43 @@ import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import * as path from "path";
 import q from "q";
+import {exec} from "child_process";
 
 export default class Node {
 
     constructor(){
         this.zk_path = null;
+        this.zk_parent_path = process.argv['zk_parent_path'];
         this.zk = this.configZookeeper();
         this.pid = process.pid;
+        this.user = null;
+        this.host = null;
     }
+
+    async init(){
+        await this.setHost();
+        await this.setUser();
+    }
+
+    async setUser(){
+        return new Promise((resolve, reject) => {
+            exec(`whoami`, (err, stdout) => {
+                this.user = stdout.trim();
+                resolve(this.user);
+            });
+        });
+    }
+
+    async setHost(){
+        return new Promise((resolve, reject) => {
+            exec(`ip -o -4 addr list enp0s3 | awk '{print $4}' | cut -d/ -f1`, (err, stdout)=>{
+                this.host = stdout.trim();
+                resolve(this.host);
+            });
+        });
+    }
+
+
 
     apoptosis(){ //programmed cluster death
         console.log("Node death requested. %s is shutting down...", this.zk_path);

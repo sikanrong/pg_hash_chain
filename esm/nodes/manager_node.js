@@ -14,11 +14,18 @@ class ManagerNode extends Node{
         this.init();
     }
 
-    init () {
+    async init () {
+        await super.init();
         this.zk.connect().then(async () => {
             console.log ("zk session established, id=%s", this.zk.client_id);
-            this.zk.create('/config/node.',
-                JSON.stringify({pid: process.pid, initialized: false}),
+
+            return this.zk.create(path.join(this.zk_parent_path, '/node.'),
+                JSON.stringify({
+                    pid: process.pid,
+                    host: this.host,
+                    user: this.user,
+                    initialized: true
+                }),
                 ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)
                 .then(async (_path) => {
 
@@ -32,37 +39,11 @@ class ManagerNode extends Node{
                     //spin up the standby nodes...
                     for(let i = 0; i < $config.pg_slave_count + 1; i++){ //one more sub-node created (will be master)
                         let cp = fork(path.join(__dirname, 'standby_node.js'), [
-                            `db_port=${$config.pg_port_start + i}`,
-                            `app_port=${$config.app_port_start + i}`
+                            `zk_parent_path=${this.zk_parent_path}`
                         ], {
                             execArgv: [`--inspect=${$config.app_debug_port_start + i}`]
                         });
-                        cp.send(_path);
                     }
-            }).then(()=>{
-                return new Promise((resolve, reject) => {
-                    const watchChildren = () => {
-                        this.zk.getChildren('/config', true).then(async reply =>{
-                            const matching_children = reply.children.filter(child => {
-                                return (child.indexOf(path.basename(this.zk_path)) != -1);
-                            });
-
-                            if(matching_children.length == (2 + $config.pg_slave_count)){
-                                const _r = await this.zk.get(this.zk_path)
-                                const _o = JSON.parse(reply.data);
-                                _o.initialized = true;
-                                await this.zk.set(this.zk_path, JSON.stringify(_o), _r.stat.version);
-                                resolve();
-                            }
-
-                            reply.watch.then(event => {
-                                watchChildren();
-                            });
-                        });
-                    };
-
-                    watchChildren();
-                });
             });
         });
 

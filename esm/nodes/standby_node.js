@@ -6,26 +6,24 @@ import * as $config from "../../cluster";
 import Node from "./node";
 
 class StandbyNode extends Node{
-    constructor(_p, db_port, app_port){
+    constructor(){
         super();
 
-        this.zk_parent_path = _p;
-        this.db_port = db_port;
-        this.app_port = app_port;
         this.is_master = false;
 
         this.init();
     }
 
     async init(){
+        await super.init();
         await this.zk.connect().then(() => {
             return this.zk.create(
-                path.join('/config', `${path.basename(this.zk_parent_path)}.subnode.`),
+                path.join(this.zk_parent_path, 'subnode.'),
                 JSON.stringify({
                     initialized: true,
                     pid: this.pid,
-                    db_port: this.db_port,
-                    app_port: this.app_port
+                    host: this.host,
+                    user: this.user
                 }),
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE
             ).then(async _path => {
@@ -64,6 +62,4 @@ class StandbyNode extends Node{
     }
 }
 
-process.on('message', _p => {
-    new StandbyNode(_p, process.argv['db_port'], process.argv['app_port']);
-});
+new StandbyNode();

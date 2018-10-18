@@ -2,11 +2,11 @@ import q from "q";
 import * as $config from "../../cluster";
 import * as path from "path";
 import Node from "./node";
+import remote_exec from "ssh-exec";
 
 export default class DeploymentNode extends Node{
     constructor(spawn_remote){
         super();
-        this.zk_path = '/config';
         this.spawn_remote = spawn_remote;
         this.init_promise = this.init();
     }
@@ -19,22 +19,35 @@ export default class DeploymentNode extends Node{
                 console.warn(`Could not create root-level /lock node: ${reason}`);
             });
 
-            await this.zk.create('/config').then(()=>{}, reason=>{
-                console.warn(`Could not create root-level /config node: ${reason}`);
-            });
+            return this.zk.create('/config').then(async ()=>{
+                return this.zk.create('/config/deploy.', new String(), ZooKeeper.ZOO_SEQUENCE).then(_p => {
+                    this.zk_path = _p;
+                    return this.zk.getChildren(_p).then(async (reply)=>{
 
-            return this.zk.getChildren('/config').then(async (reply)=>{
-                reply.children.forEach(async _child => {
-                    const _r = await this.zk.get(path.join('/config', _child)).then(_r => {_r}, (reason)=>{
-                        console.warn(`Cannot get data from ${path.join('/config', _child)}: ${reason}`);
-                    });
-                    const _o = JSON.parse(_r.data);
-                    await this.zk.delete(path.join('/config', _child), _r.stat.version).then(()=>{}, reason => {
-                        console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
+                        let _pchild = null;
+                        if(reply.children.length > 1)
+                            _pchild = reply.children[reply.children.length - 2];
+
+                        if(!_pchild)
+                            return;
+
+                        const _r = await this.zk.get(path.join(_p, _pchild)).then(_r => {_r}, (reason)=>{
+                            console.warn(`Cannot get data from ${path.join('/config', _pchild)}: ${reason}`);
+                        });
+
+                        const _o = JSON.parse(_r.data);
+
+                        remote_exec(`sudo kill ${_o.pid} || echo "ERROR: ${_o.pid} is not running."`, {
+                            user: _o.user,
+                            host: _o.host,
+                            key: $config.ssh_key
+                        }).pipe(process.stdout);
                     });
                 });
+            }, reason=>{
+                console.warn(`Could not create root-level /config node: ${reason}`);
             }).then(() => {
-                this.spawn_remote();
+                this.spawn_remote(this.zk_path);
                 return true;
             }).then(() => {
                 return this.monitorInitialized($config.nodes.length + ($config.nodes.length * ($config.pg_slave_count + 1)));
