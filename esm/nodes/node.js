@@ -9,6 +9,11 @@ export default class Node {
         this.zk_path = null;
         this.zk = this.configZookeeper();
         this.pid = process.pid;
+
+        process.on("exit", this.zk.close);
+        process.on("SIGINT", this.zk.close);
+        process.on("SIGUSR1", this.zk.close);
+        process.on("SIGUSR2", this.zk.close);
     }
 
     apoptosis(){ //programmed cluster death
@@ -38,7 +43,7 @@ export default class Node {
     configZookeeper () {
         return new ZooKeeper({
             connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
-            timeout: 200000,
+            timeout: $config.zk_connection_timeout,
             debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
             host_order_deterministic: false
         });

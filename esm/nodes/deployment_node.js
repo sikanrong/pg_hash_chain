@@ -25,7 +25,9 @@ export default class DeploymentNode extends Node{
 
             return this.zk.getChildren('/config').then(async (reply)=>{
                 reply.children.forEach(async _child => {
-                    const _r = await this.zk.get(path.join('/config', _child));
+                    const _r = await this.zk.get(path.join('/config', _child)).then(_r => {_r}, (reason)=>{
+                        console.warn(`Cannot get data from ${path.join('/config', _child)}: ${reason}`);
+                    });
                     const _o = JSON.parse(_r.data);
                     await this.zk.delete(path.join('/config', _child), _r.stat.version).then(()=>{}, reason => {
                         console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
