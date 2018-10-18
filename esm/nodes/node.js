@@ -74,9 +74,12 @@ export default class Node {
 
             if(Object.keys(deferreds).length == desiredChildCount){
 
-                q.all(Object.keys(deferreds).map(_k => {
+                const p_ar = Object.keys(deferreds).map(_k => {
                     return deferreds[_k].promise;
-                })).then(_d.resolve);
+                });
+                q.all(p_ar).then(()=>{
+                    _d.resolve();
+                });
             }
 
             reply.watch.then(event => {

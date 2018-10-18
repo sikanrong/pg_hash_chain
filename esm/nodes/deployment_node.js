@@ -23,12 +23,12 @@ export default class DeploymentNode extends Node{
                 console.warn(`Could not create root-level /config node: ${reason}`);
             });
 
-            return this.zk.getChildren('/config').then((reply)=>{
-                return q.all(reply.children.map(_child => {
-                    return this.zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
+            return this.zk.getChildren('/config').then(async (reply)=>{
+                reply.children.forEach(async _child => {
+                    await this.zk.delete(path.join('/config', _child)).then(()=>{}, reason => {
                         console.warn(`Cannot delete ${path.join('/config', _child )}: ${reason}`);
                     });
-                }));
+                });
             }).then(() => {
                 this.spawn_remote();
                 return true;

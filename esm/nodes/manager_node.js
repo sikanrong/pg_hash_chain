@@ -51,7 +51,7 @@ class ManagerNode extends Node{
                                 await this.zk.get(this.zk_path).then(async reply => {
                                     const _o = JSON.parse(reply.data);
                                     _o.initialized = true;
-                                    await this.zk.set(this.zk_path, JSON.stringify(_o), -1);
+                                    await this.zk.set(this.zk_path, JSON.stringify(_o));
                                 });
 
                                 resolve();
