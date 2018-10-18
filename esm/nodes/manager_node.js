@@ -39,7 +39,27 @@ class ManagerNode extends Node{
                         });
                         cp.send(_path);
                     }
-                });
+            }).then(()=>{
+                const watchChildren = () => {
+                    this.zk.getChildren('/config', true).then(reply =>{
+                        const matching_children = reply.children.filter(child => {
+                            return child.indexOf(path.basename(_path))
+                        });
+
+                        if(matching_children.length == (2 + $config.pg_slave_count)){
+                            this.zk.get(this.zk_path).then(reply => {
+                                const _o = JSON.parse(reply.data);
+                                _o.initialized = true;
+                                this.zk.set(this.zk_path, JSON.stringify(_o), -1);
+                            });
+                        }
+
+                        reply.watch.then(event => {
+                            watchChildren();
+                        });
+                    });
+                }
+            });
         });
 
     }

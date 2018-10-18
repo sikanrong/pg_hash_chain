@@ -20,7 +20,7 @@ class StandbyNode extends Node{
     async init(){
         await this.zk.connect().then(() => {
             return this.zk.create(
-                path.join('/config', 'subnode.'),
+                path.join('/config', `${path.basename(this.zk_parent_path)}.subnode.`),
                 JSON.stringify({
                     initialized: true,
                     pid: this.pid,
