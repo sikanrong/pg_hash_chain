@@ -48,12 +48,10 @@ class ManagerNode extends Node{
                             });
 
                             if(matching_children.length == (2 + $config.pg_slave_count)){
-                                await this.zk.get(this.zk_path).then(async reply => {
-                                    const _o = JSON.parse(reply.data);
-                                    _o.initialized = true;
-                                    await this.zk.set(this.zk_path, JSON.stringify(_o), reply.stat.version + 1);
-                                });
-
+                                const _r = await this.zk.get(this.zk_path)
+                                const _o = JSON.parse(reply.data);
+                                _o.initialized = true;
+                                await this.zk.set(this.zk_path, JSON.stringify(_o), _r.stat.version);
                                 resolve();
                             }
 
