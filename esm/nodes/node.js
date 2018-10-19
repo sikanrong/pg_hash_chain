@@ -18,34 +18,25 @@ export default class Node {
         this.zk_parent_path = (zk_parent_arg)? zk_parent_arg.split('=')[1] : null;
         this.zk = this.configZookeeper();
         this.pid = process.pid;
-        this.user = null;
+        this.zk_myid = null;
         this.host = null;
+        this.user = null;
     }
 
     async init(){
-        await this.setHost();
-        await this.setUser();
+        await this.setZkMyid();
+        this.host = $config[this.zk_myid].host;
+        this.user = $config[this.zk_myid].user;
     }
 
-    async setUser(){
+    async setZkMyid(){
         return new Promise((resolve, reject) => {
-            exec(`whoami`, (err, stdout) => {
-                this.user = stdout.trim();
-                resolve(this.user);
+            exec(`cat ${$config.zk_config_path}/myid`, (err, stdout) => {
+                this.zk_myid = stdout.trim();
+                resolve(this.zk_myid);
             });
         });
     }
-
-    async setHost(){
-        return new Promise((resolve, reject) => {
-            exec(`ip -o -4 addr list enp0s3 | awk '{print $4}' | cut -d/ -f1`, (err, stdout)=>{
-                this.host = stdout.trim();
-                resolve(this.host);
-            });
-        });
-    }
-
-
 
     apoptosis(){ //programmed cluster death
         console.log("Node death requested. %s is shutting down...", this.zk_path);
