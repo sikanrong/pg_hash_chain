@@ -1,3 +1,6 @@
+//Yeah so this file has an unfortunate name, but it seemed stupid to avoid it when it's probably
+//(linguistally) the best choice.
+
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import * as path from "path";
@@ -8,7 +11,10 @@ export default class Node {
 
     constructor(){
         this.zk_path = null;
-        this.zk_parent_path = process.argv['zk_parent_path'];
+        //parse out the parent path from the ARGV
+        this.zk_parent_path = process.argv.filter(arg => {
+            return (arg.indexOf('zk_parent_path') > -1)
+        })[0].split('=')[1];
         this.zk = this.configZookeeper();
         this.pid = process.pid;
         this.user = null;
