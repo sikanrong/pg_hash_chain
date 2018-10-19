@@ -55,7 +55,7 @@ export default class Node {
                 reply = await this.zk.set(path, JSON.stringify(newData), reply.stat.version).then(_r => {
                     return _r;
                 }, (err) => {
-                    //Do nothing
+                    console.warn(err.message);
                 });
 
                 if(!reply){

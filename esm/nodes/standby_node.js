@@ -16,13 +16,11 @@ class StandbyNode extends Node{
 
     async getMasterLock(){
         //Get in line to get ahold of the master lock
-        const _lock_path = await this.zk.create(
-            path.join(`/lock/${this.zk_myid}`, 'master.'),
-            new String(),
-            ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE );
+        const _lock_path = `/lock/${this.zk_myid}`;
 
-
-        const gc_reply = await this.zk.getChildren(path.join(this.zk_parent_path, 'master_lock'));
+        const gc_reply = await this.zk.getChildren(_lock_path).then(_r => {return _r}, (err) => {
+            throw new Error(err);
+        });
 
         const sorted_locks = gc_reply.children.sort();
         const mylock_idx = sorted_locks.indexOf(path.basename(_lock_path));
@@ -44,7 +42,7 @@ class StandbyNode extends Node{
             });
         },
         reason => {
-            throw new Error(`Unable to wait for : ${reason}`)
+            throw new Error(reason);
         });
     }
 

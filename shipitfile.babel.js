@@ -14,6 +14,7 @@ export default shipit => {
             workspace: $config.shipit_workspace,
             deployTo: $config.app_deploy_path,
             repositoryUrl: $config.app_deploy_from,
+            branch: $config.app_deploy_from_branch,
             ignores: ['.git', 'node_modules'],
             keepReleases: 2,
             deleteOnRollback: false,
