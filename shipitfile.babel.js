@@ -4,7 +4,7 @@ import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import q from "q";
-import DeploymentNode from "./esm/nodes/deployment_node";
+import OrchestratorNode from "./esm/nodes/orchestrator_node";
 
 export default shipit => {
     require('shipit-deploy')(shipit);
@@ -58,14 +58,14 @@ export default shipit => {
     //Configure zookeeper so that we can hand off the rest of configuration to it
     shipit.blTask('configure-zookeeper', async () => {
         await shipit.remote(`cp -R /etc/zookeeper/conf_example ${$config.zk_config_path}`);
-        await shipit.local($config.nodes.map(node => {
-            return `ssh ${node.user}@${node.host} 'echo ${node.myid} > ${$config.zk_config_path}/myid'`
+        await shipit.local(Object.keys($config.nodes).map(myid => {
+            return `ssh ${$config.nodes[myid].user}@${$config.nodes[myid].host} 'echo ${myid} > ${$config.zk_config_path}/myid'`
         }).join(" && "));
         var conf = fs.readFileSync("remote_cfg/zoo.cfg", "utf8");
         var template = Handlebars.compile(conf, {noEscape: true});
 
-        var zk_servers = $config.nodes.map(node => {
-           return `server.${node.myid}\=${node.host}:${$config.zk_discovery_port}:${$config.zk_election_port}`
+        var zk_servers = Object.keys($config.nodes).map(myid => {
+           return `server.${myid}\=${$config.nodes[myid].host}:${$config.zk_discovery_port}:${$config.zk_election_port}`
         }).join("\n");
 
         fs.writeFileSync("./tmp/zoo.cfg", template({
@@ -94,9 +94,13 @@ export default shipit => {
     });
 
     shipit.task('remote_zk_configure', async () => {
-        const _n = new DeploymentNode((deploy_path)=>{
-            return shipit.remote(`nohup node --inspect=9222 ${$config.app_deploy_path}/current/cjs/nodes/manager_node.js zk_parent_path=${deploy_path} &`);
+        const _n = new OrchestratorNode(async (deploy_path)=>{
+            for(let i = 0; i < $config.pg_slave_count + 1; i++){
+                await shipit.remote(`nohup node --inspect=${$config.app_debug_port_start + i} ${$config.app_deploy_path}/current/cjs/nodes/standby_node.js zk_parent_path=${deploy_path} &`);
+            }
         });
+
+        return _n.init_promise;
     });
 
     shipit.blTask('build-esm', async () => {

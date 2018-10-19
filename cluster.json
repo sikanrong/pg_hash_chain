@@ -1,21 +1,18 @@
 {
-  "nodes": [
-    {
+  "nodes": {
+    "1": {
       "host": "192.168.1.101",
-      "myid": 1,
       "user": "app"
     },
-    {
+    "2": {
       "host": "192.168.1.102",
-      "myid": 2,
       "user": "app"
     },
-    {
+    "3": {
       "host": "192.168.1.103",
-      "myid": 3,
       "user": "app"
     }
-  ],
+  },
 
   "ssh_key": "/Users/sikanrong/.ssh/id_rsa_pgcluster",
   "shipit_workspace": "/tmp/hash_chain.shipit",
@@ -37,7 +34,7 @@
   "zk_connection_timeout": 10000,
   
   "app_port_start": 8080,
-  "app_debug_port_start": 9229,
+  "app_debug_port_start": 9222,
   "app_deploy_path": "~/hash_chain",
   "app_deploy_from": "file:///var/www/pg_hash_chain",
 
