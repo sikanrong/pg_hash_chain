@@ -18,7 +18,7 @@ export default class OrchestratorNode extends Node{
 
             await this.zk.create('/lock').then(async (_p)=>{return _p}, err=>{
                 if(err.name == "ZNODEEXISTS")
-                    console.log(err);
+                    console.log(`${err.toString()}: ${err.path}`);
                 else
                     throw new Error(err);
             });
@@ -26,14 +26,14 @@ export default class OrchestratorNode extends Node{
             for(let myid in $config.nodes){
                 await this.zk.create(`/lock/${myid}`, new String()).then(_p => {return _p}, (err)=>{
                     if(err.name == "ZNODEEXISTS")
-                        console.log(err);
+                        console.log(`${err.toString()}: ${err.path}`);
                     else
                         throw new Error(err);
                 });
             }
 
-            await this.zk.create('/config').then(async ()=>{}, reason=>{
-                console.warn(`Could not create root-level /config node: ${reason}`);
+            await this.zk.create('/config').then(async ()=>{}, err=>{
+                console.log(`${err.toString()}: ${err.path}`);
             });
 
             return this.zk.create('/config/deploy.', new String(), ZooKeeper.ZOO_SEQUENCE).then(_p => {

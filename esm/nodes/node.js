@@ -55,7 +55,11 @@ export default class Node {
                 reply = await this.zk.set(path, JSON.stringify(newData), reply.stat.version).then(_r => {
                     return _r;
                 }, (err) => {
-                    console.warn(err.message);
+                    if(err.name == 'ZBADVERSION'){
+                        console.log(`${err.toString()}: ${err.path}`);
+                    }else{
+                        throw new Error(err);
+                    }
                 });
 
                 if(!reply){
