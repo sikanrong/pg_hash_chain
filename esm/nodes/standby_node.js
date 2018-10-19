@@ -10,6 +10,7 @@ class StandbyNode extends Node{
         super();
 
         this.is_master = false;
+        this.master_lock_path = null;
 
         this.init();
     }
@@ -18,12 +19,18 @@ class StandbyNode extends Node{
         //Get in line to get ahold of the master lock
         const _lock_path = `/lock/${this.zk_myid}`;
 
+        this.master_lock_path = await this.zk.create(path.join(_lock_path, 'master.'),
+            new String(),
+            (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then(_p => {return _p}, (err)=>{
+                throw new Error(err);
+        });
+
         const gc_reply = await this.zk.getChildren(_lock_path).then(_r => {return _r}, (err) => {
             throw new Error(err);
         });
 
         const sorted_locks = gc_reply.children.sort();
-        const mylock_idx = sorted_locks.indexOf(path.basename(_lock_path));
+        const mylock_idx = sorted_locks.indexOf(path.basename(this.master_lock_path));
         if(mylock_idx == 0){
             //if my lock is first i just exit happily
             this.is_master = true;
