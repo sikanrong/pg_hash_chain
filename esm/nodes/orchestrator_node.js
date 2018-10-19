@@ -64,8 +64,7 @@ export default class OrchestratorNode extends Node{
                                 key: $config.ssh_key
                             }, (err, stdout) => {
                                 if(err){
-                                    throw new Error(err);
-                                    reject(err);
+                                    console.warn(`Could not kill process with pid ${_o.pid}: process not running.`);
                                 }
                                 
                                 resolve();
