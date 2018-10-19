@@ -66,7 +66,7 @@ export default class Node {
 
     configZookeeper () {
         return new ZooKeeper({
-            connect: `${$config.nodes[0].host}:${$config.zk_client_port}`,
+            connect: `${$config.nodes[Object.keys($config.nodes)[0]].host}:${$config.zk_client_port}`,
             timeout: $config.zk_connection_timeout,
             debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
             host_order_deterministic: false
