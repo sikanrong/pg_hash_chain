@@ -116,8 +116,11 @@ export default class Node {
         const monitorChild = (_c) => {
             this.zk.get(path.join(this.zk_path, _c), true).then(reply => {
                 const _data = JSON.parse(reply.data);
-                if(_data.initialized)
+                if(_data.initialized){
                     deferreds[_c].resolve();
+                    console.log(`monitorInitialized: ${this.zk_path} init signal received`);
+                }
+
 
                 reply.watch.then((event) => {
                     monitorChild(_c);
@@ -135,7 +138,7 @@ export default class Node {
                     monitorChild(child);
                 });
 
-                console.log(`MonitorInitialized seeing ${reply.children.length} children initialized.`);
+                console.log(`MonitorInitialized: monitoring ${reply.children.length} for init signal.`);
 
                 if(reply.children.length == desiredChildCount){
 

@@ -16,15 +16,21 @@ export default class OrchestratorNode extends Node{
         return this.zk.connect().then(async () => {
             console.log ("zk session established, id=%s", this.zk.client_id);
 
-            await this.zk.create('/lock').then(async ()=>{
-                for(let myid in $config.nodes){
-                    await this.zk.create('/lock/'+myid, new String()).then(_p => {return _p}, (err)=>{
-                        console.warn(err.message);
-                    });
-                }
-            }, reason=>{
-                console.warn(`Could not create root-level /lock node: ${reason}`);
+            await this.zk.create('/lock').then(async (_p)=>{return _p}, err=>{
+                if(err.name == "ZNODEEXISTS")
+                    console.warn(err);
+                else
+                    throw new Error(err);
             });
+
+            for(let myid in $config.nodes){
+                await this.zk.create(`/lock/${myid}`, new String()).then(_p => {return _p}, (err)=>{
+                    if(err.name == "ZNODEEXISTS")
+                        console.warn(err);
+                    else
+                        throw new Error(err);
+                });
+            }
 
             await this.zk.create('/config').then(async ()=>{}, reason=>{
                 console.warn(`Could not create root-level /config node: ${reason}`);
