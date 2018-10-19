@@ -95,9 +95,9 @@ export default shipit => {
     });
 
     shipit.task('remote_zk_configure', async () => {
-        const _n = new OrchestratorNode(async (deploy_path)=>{
-            for(let i = 0; i < $config.pg_slave_count + 1; i++){
-                await shipit.remote(`nohup node --inspect=${$config.app_debug_port_start + i} ${$config.app_deploy_path}/current/cjs/nodes/standby_node.js zk_parent_path=${deploy_path} &`);
+        const _n = new OrchestratorNode((deploy_path)=>{
+            for(let i = 0; i < ($config.pg_slave_count + 1); i++){
+                shipit.remote(`nohup node --inspect=${$config.app_debug_port_start + i} ${$config.app_deploy_path}/current/cjs/nodes/standby_node.js zk_parent_path=${deploy_path} &`);
             }
         });
 

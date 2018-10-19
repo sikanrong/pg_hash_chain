@@ -2,7 +2,7 @@ import q from "q";
 import * as $config from "../../cluster";
 import * as path from "path";
 import Node from "./node";
-import remote_exec from "ssh-exec";
+import exec from "ssh-exec";
 import ZooKeeper from "zookeeper";
 
 export default class OrchestratorNode extends Node{
@@ -46,22 +46,23 @@ export default class OrchestratorNode extends Node{
                         const _o = JSON.parse(json_str);
 
                         return new Promise((resolve, reject) => {
-                            remote_exec(`sudo kill ${_o.pid}`, {
+                            exec(`sudo kill ${_o.pid}`, {
                                 user: _o.user,
                                 host: _o.host,
                                 key: $config.ssh_key
                             }, (err, stdout) => {
-                                if(err)
+                                if(err){
                                     throw new Error(err);
-
-                                console.log(stdout);
+                                    reject(err);
+                                }
+                                
                                 resolve();
                             });
                         });
                     }));
                 });
             }).then(async () => {
-                await this.spawn_remote(this.zk_path);
+                this.spawn_remote(this.zk_path);
             }).then(() => {
                 const total_nodes = (Object.keys($config.nodes).length * ($config.pg_slave_count + 1));
                 return this.monitorInitialized();
