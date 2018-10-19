@@ -50,7 +50,7 @@ export default class Node {
                     throw new Error(err);
                 });
 
-                const newData = Object.assign(data, JSON.parse(reply.data));
+                const newData = Object.assign(JSON.parse(reply.data), data);
 
                 reply = await this.zk.set(path, JSON.stringify(newData), reply.stat.version).then(_r => {
                     return _r;
