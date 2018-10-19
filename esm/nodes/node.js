@@ -25,8 +25,8 @@ export default class Node {
 
     async init(){
         await this.setZkMyid();
-        this.host = $config[this.zk_myid].host;
-        this.user = $config[this.zk_myid].user;
+        this.host = $config.nodes[this.zk_myid].host;
+        this.user = $config.nodes[this.zk_myid].user;
     }
 
     async setZkMyid(){
