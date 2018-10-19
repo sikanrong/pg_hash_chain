@@ -32,7 +32,7 @@
   "zk_election_port": 3888,
   "zk_client_port": 2181,
   "zk_datadir": "/var/lib/zookeeper",
-  "zk_connection_timeout": 30000,
+  "zk_connection_timeout": 5000,
   
   "app_port_start": 8080,
   "app_debug_port_start": 9222,
