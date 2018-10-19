@@ -65,7 +65,7 @@ export default class OrchestratorNode extends Node{
                 this.spawn_remote(this.zk_path);
             }).then(() => {
                 const total_nodes = (Object.keys($config.nodes).length * ($config.pg_slave_count + 1));
-                return this.monitorInitialized();
+                return this.monitorInitialized(total_nodes);
             }).then(() => {
                 this.zk.close();
             });

@@ -53,7 +53,7 @@ export default class Node {
     }
 
     apoptosisMonitor () {
-        console.log("Monitoring for signs of shutdown signal...");
+        console.log(`${this.zk_path} ONLINE: Monitoring for signs of shutdown signal...`);
         this.zk.exists(this.zk_path, true).then(reply => {
             if(!reply.stat){
                 this.apoptosis();
@@ -99,29 +99,34 @@ export default class Node {
             });
         };
 
-        this.zk.getChildren(this.zk_path, true).then((reply) => {
-            reply.children.forEach(child => {
-                if(deferreds[child])
-                return;
+        const monitorChildren = () => {
+            this.zk.getChildren(this.zk_path, true).then((reply) => {
+                reply.children.forEach(child => {
+                    if(deferreds[child])
+                        return;
 
-                deferreds[child] = q.defer();
-                monitorChild(child);
-            });
-
-            if(Object.keys(deferreds).length == desiredChildCount){
-
-                const p_ar = Object.keys(deferreds).map(_k => {
-                    return deferreds[_k].promise;
+                    deferreds[child] = q.defer();
+                    monitorChild(child);
                 });
-                q.all(p_ar).then(()=>{
-                    _d.resolve();
-                });
-            }
 
-            reply.watch.then(event => {
-                this.monitorInitialized(desiredChildCount);
+                console.log(`MonitorInitialized seeing ${reply.children.length} children initialized.`);
+
+                if(reply.children.length == desiredChildCount){
+
+                    q.all(Object.keys(deferreds).map(_k => {
+                        return deferreds[_k].promise;
+                    })).then(()=>{
+                        _d.resolve();
+                    });
+                }
+
+                reply.watch.then(event => {
+                    monitorChildren();
+                });
             });
-        });
+        };
+
+        monitorChildren();
 
         return _d.promise;
     }
