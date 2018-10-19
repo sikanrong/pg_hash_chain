@@ -22,7 +22,8 @@ export default shipit => {
         },
 
         production: {
-            servers: $config.nodes.map(node => {
+            servers: Object.keys($config.nodes).map(node_id => {
+                let node = $config.nodes[node_id];
                 return {
                     host: node.host,
                     user: node.user
