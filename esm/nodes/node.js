@@ -12,9 +12,10 @@ export default class Node {
     constructor(){
         this.zk_path = null;
         //parse out the parent path from the ARGV
-        this.zk_parent_path = process.argv.filter(arg => {
+        const zk_parent_arg = process.argv.filter(arg => {
             return (arg.indexOf('zk_parent_path') > -1)
-        })[0].split('=')[1];
+        })[0]
+        this.zk_parent_path = (zk_parent_arg)? zk_parent_arg.split('=')[1] : null;
         this.zk = this.configZookeeper();
         this.pid = process.pid;
         this.user = null;
