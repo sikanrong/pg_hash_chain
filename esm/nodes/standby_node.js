@@ -33,6 +33,7 @@ class StandbyNode extends Node{
         const mylock_idx = sorted_locks.indexOf(path.basename(this.master_lock_path));
         if(mylock_idx == 0){
             //if my lock is first i just exit happily
+            console.log(`Node (pid: ${this.pid}) has been designated current master.`);
             this.is_master = true;
             return;
         }
