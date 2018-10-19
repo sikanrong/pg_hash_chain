@@ -27,6 +27,7 @@
   "pg_master_basebackup_path": "~/pg_bdr_cluster/master_basebackup",
 
   "zk_config_path": "~/zookeeper_conf",
+  "zk_update_retries": 10,
   "zk_discovery_port": 2888,
   "zk_election_port": 3888,
   "zk_client_port": 2181,

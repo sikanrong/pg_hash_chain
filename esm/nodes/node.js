@@ -38,6 +38,41 @@ export default class Node {
         });
     }
 
+    async updateJsonZKData(path, data, maxRetries){
+        let tries = 0;
+
+        if(maxRetries === undefined)
+            maxRetries = $config.zk_update_retries;
+
+        return new Promise((resolve, reject) => {
+            const doUpdate = async () => {
+                let reply = await this.zk.get(path).then(_r => {return _r;}, (err) => {
+                    throw new Error(err);
+                });
+
+                const newData = Object.assign(data, JSON.parse(reply.data));
+
+                reply = await this.zk.set(path, JSON.stringify(newData), reply.stat.version).then(_r => {
+                    return _r;
+                }, (err) => {
+                    //Do nothing
+                });
+
+                if(!reply){
+                    if(++tries > max_retries){
+                        throw new Error(`Update ${path}: max_retries (${max_retries}) exceeded`);
+                    }else{
+                        return await doUpdate(path, data);
+                    }
+                }else{
+                    return reply.stat;
+                }
+            };
+
+            doUpdate().then(resolve);
+        });
+    }
+
     apoptosis(){ //programmed cluster death
         console.log("Node death requested. %s is shutting down...", this.zk_path);
         process.kill(process.pid);
