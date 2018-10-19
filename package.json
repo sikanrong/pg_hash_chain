@@ -4,7 +4,7 @@
   "description": "A simple simulation of global-scale distributed database activity to test various features or multi-master replication and conflict resolution.",
   "main": "index.js",
   "scripts": {
-    "build": "babel esm --out-dir cjs",
+    "build": "babel esm --source-maps inline --out-dir cjs",
     "prepublish": "npm run build",
     "install": "npm run build",
     "test": "ava --tap test.js"
