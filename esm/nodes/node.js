@@ -125,6 +125,9 @@ export default class Node {
                 reply.watch.then((event) => {
                     monitorChild(_c);
                 });
+            }, (err) => {
+                deffereds[_c].reject(err);
+                throw new Error(err);
             });
         };
 
