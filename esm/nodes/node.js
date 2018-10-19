@@ -126,7 +126,7 @@ export default class Node {
                     monitorChild(_c);
                 });
             }, (err) => {
-                deffereds[_c].reject(err);
+                deferreds[_c].reject(err);
                 throw new Error(err);
             });
         };

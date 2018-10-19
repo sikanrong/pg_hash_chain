@@ -38,7 +38,7 @@ class StandbyNode extends Node{
         }
 
         //I don't have the lock :(
-        const _prev_lock_path = path.join(path.dirname(_lock_path), sorted_locks[mylock_idx - 1]);
+        const _prev_lock_path = path.join(_lock_path, sorted_locks[mylock_idx - 1]);
         await this.zk.exists(_prev_lock_path, true).then(reply => {
             reply.watch.then((event) => {
                 if(event.type == 'deleted'){
