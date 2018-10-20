@@ -123,7 +123,7 @@ export default class Node {
             if(path_ar.length == 0){
                 insert_data = data; //insert data on the last iteration
             }
-            await this.zk.create(path.join.apply(this, path_constructed_ar), insert_data).then(_p => {return _p}, (err) => {
+            await this.zk.create(`/${path.join.apply(this, path_constructed_ar)}`, insert_data).then(_p => {return _p}, (err) => {
                 if(err.name != 'ZNODEEXISTS'){
                     throw new Error(err);
                 }
