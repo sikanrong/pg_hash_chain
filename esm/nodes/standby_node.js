@@ -4,58 +4,102 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import Node from "./node";
+import {fork} from "child_process";
 
 class StandbyNode extends Node{
     constructor(){
         super();
 
         this.is_master = false;
+        this.slave_lock_held = null;
+        this.slave_lock_path = null;
         this.master_lock_path = null;
 
         this.init();
     }
 
     async getMasterLock(){
-        //Get in line to get ahold of the master lock
-        const _lock_path = `/lock/${this.zk_myid}`;
+        return new Promise((resolve, reject) => {
+            this.getLock(`/lock/master/${this.zk_myid}`).subscribe(async _o => {
+                switch(_o.action){
+                    case 'granted':
+                        this.is_master = true;
 
-        this.master_lock_path = await this.zk.create(path.join(_lock_path, 'master.'),
-            new String(),
-            (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then(_p => {return _p}, (err)=>{
-                throw new Error(err);
-        });
+                        if(this.slave_lock_held){
+                            //release the slave lock we hold so that another process can take over that slave slot
+                            const g_reply = await this.zk.get(this.slave_lock_path).then(_r => {return _r}, err => {
+                                throw new Error(err);
+                            });
 
-        const gc_reply = await this.zk.getChildren(_lock_path).then(_r => {return _r}, (err) => {
-            throw new Error(err);
-        });
+                            await this.zk.delete(this.slave_lock_path, g_reply.stat.version).then(_r => {return _r}, err => {
+                                throw new Error(err);
+                            });
 
-        const sorted_locks = gc_reply.children.sort();
-        const mylock_idx = sorted_locks.indexOf(path.basename(this.master_lock_path));
-        if(mylock_idx == 0){
-            //if my lock is first i just exit happily
-            console.log(`Node (pid: ${this.pid}) has been designated current master.`);
-            this.is_master = true;
-            return;
-        }
+                            this.slave_lock_held = null;
+                            this.slave_lock_path = null;
+                        }
 
-        //I don't have the lock :(
-        const _prev_lock_path = path.join(_lock_path, sorted_locks[mylock_idx - 1]);
-        await this.zk.exists(_prev_lock_path, true).then(reply => {
-            reply.watch.then((event) => {
-                if(event.type == 'deleted'){
-                    //This node is the new master!
-                    console.log(`Node (pid: ${this.pid}) ${this.zk_path} is now being promoted to MASTER.`);
-                    this.is_master = true;
+                        //note NO "break;"
+                    case 'queued':
+                        this.master_lock_path = _o.lockfile;
+                        break;
                 }
             });
-        },
-        reason => {
-            throw new Error(reason);
+        });
+    }
+
+    getSlaveLocks(){
+        return new Promise((resolve, reject) => {
+            for(var i = 0; i < $config.pg_slave_count; i++){
+                this.getLock(`/lock/slave/${this.zk_myid}/${i}`).subscribe(async _o => {
+                    switch(_o.action){
+                        case 'granted':
+                            const slave_idx = path.basename(_o.path);
+                            if(this.slave_lock_held == null){
+                                this.slave_lock_held = slave_idx;
+                                this.slave_lock_path = _o.lockfile;
+                                resolve();
+                            }else{
+                                const g_reply = await this.zk.get(_o.lockfile).then(_r => {return _r}, (err) => {
+                                    throw new Error(err);
+                                });
+                                const d_reply = await this.zk.delete(_o.lockfile, g_reply.stat.version).then(_r => {return _r}, (err) => {
+                                    throw new Error(err);
+                                });
+                            }
+
+                            break;
+                        case 'queued':
+                            //Do nothing until a slave lock is actually granted.
+                            break;
+                    }
+                });
+            }
         });
     }
 
     async setInitialized(){
         await this.updateJsonZKData(this.zk_path, {initialized: true});
+    }
+
+    async replenishSlaves(){
+        const watchSlaveLocks = async () => {
+            for(let i = 0; i < $config.pg_slave_count; i++){
+                const slave_lock_path = path.join(path.dirname(this.slave_lock_path), '..', i);
+                const gc_reply = await this.zk.getChildren(slave_lock_path, true);
+                if(gc_reply.children == 0){
+                    //spin up a new process
+                    console.log(`Master (pid: ${this.pid}) is spinning up a new process for ${}`);
+                    fork(path.join($config.app_deploy_path, 'current', 'cjs', 'nodes', 'standby_node.js'), [
+                        `zk_parent_path=${this.zk_parent_path}`
+                    ]);
+                }
+
+                gc_reply.watch.then(watchSlaveLocks.bind(this));
+            }
+        };
+
+        watchSlaveLocks();
     }
 
     async init(){
@@ -72,7 +116,21 @@ class StandbyNode extends Node{
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE
             ).then(async _path => {
                 this.zk_path = _path;
-                await  this.getMasterLock();
+                await this.getMasterLock();
+
+                if(!this.is_master){
+                    await this.getSlaveLocks();
+                }else{
+                    this.replenishSlaves();
+                }
+
+                setTimeout(()=>{
+                    if(!this.is_master && !this.slave_lock_held){
+                        console.log(`Killing (pid: ${this.pid}) ${this.zk_path} for not being able to aquire any locks.`);
+                        //kill this process if it has obtained no locks after the timeout
+                        process.kill(process.pid);
+                    }
+                }, $config.app_lock_timeout);
             }).then(()=>{
                 //start Apoptosis monitor
                 this.apoptosisMonitor();

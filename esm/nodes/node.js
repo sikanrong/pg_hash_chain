@@ -6,6 +6,7 @@ import * as $config from "../../cluster";
 import * as path from "path";
 import q from "q";
 import {exec} from "child_process";
+import {Subject} from "rxjs";
 
 export default class Node {
 
@@ -108,6 +109,82 @@ export default class Node {
             debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
             host_order_deterministic: false
         });
+    }
+
+    //same args as zk.create
+    //same idea as POSIX mkdirp
+    //data is only inserted for last node in chain
+    async zkMkdirp(path, data){
+        const path_ar = path.split('/');
+        const path_constructed_ar = [];
+        while(path_ar.length > 0){
+            path_constructed_ar.push(path_ar.unshift());
+            let insert_data = undefined;
+            if(path_ar.length == 0){
+                insert_data = data; //insert data on the last iteration
+            }
+            await this.zk.create(path.join(path_constructed_ar), insert_data).then(_p => {return _p}, (err) => {
+                if(err.name != 'ZNODEEXISTS'){
+                    throw new Error(err);
+                }
+            })
+        }
+    }
+
+    async getLock(_path, prefix){
+        const outstream = new Subject();
+        prefix = prefix || 'lock';
+
+        const grantLock = ()=>{
+            console.log(`Node (pid: ${this.pid}) has been granted the LOCK at ${lockfile}`);
+            outstream.next({
+                lockfile: lockfile,
+                path: _path,
+                action: 'granted',
+                queuePos: 0
+            });
+        };
+
+        const lockfile = await this.zk.create(path.join(_path, `${prefix}.`),
+            new String(),
+            (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then(_p => {return _p}, (err)=>{
+            throw new Error(err);
+        });
+
+        const gc_reply = await this.zk.getChildren(_path).then(_r => {return _r}, (err) => {
+            throw new Error(err);
+        });
+
+        const sorted_locks = gc_reply.children.sort();
+        const mylock_idx = sorted_locks.indexOf(path.basename(lockfile));
+        if(mylock_idx == 0){
+            //if my lock is first i just exit happily
+            grantLock();
+            return;
+        }
+
+        outstream.next({
+            lockfile: lockfile,
+            path: _path,
+            action: 'queued',
+            queuePos: mylock_idx
+        });
+
+        //I don't have the lock :(
+        const _prev_lock_path = path.join(_path, sorted_locks[mylock_idx - 1]);
+        await this.zk.exists(_prev_lock_path, true).then(reply => {
+            reply.watch.then((event) => {
+                if(event.type == 'deleted'){
+                    //This node is the new master!
+                    grantLock();
+                }
+            });
+        },
+        reason => {
+            throw new Error(reason);
+        });
+
+        return outstream;
     }
 
     //Will monitor all children of a given path and resolve when they all have

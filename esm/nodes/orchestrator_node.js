@@ -14,27 +14,21 @@ export default class OrchestratorNode extends Node{
 
     init(){
         return this.zk.connect().then(async () => {
-            console.log ("zk session established, id=%s", this.zk.client_id);
+            console.log ("OrchestratorNode: zk session established, id=%s", this.zk.client_id);
 
-            await this.zk.create('/lock').then(async (_p)=>{return _p}, err=>{
-                if(err.name == "ZNODEEXISTS")
-                    console.log(`${err.toString()}: ${err.path}`);
-                else
-                    throw new Error(err);
-            });
+            await this.zkMkdirp('/config');
 
             for(let myid in $config.nodes){
-                await this.zk.create(`/lock/${myid}`, new String()).then(_p => {return _p}, (err)=>{
-                    if(err.name == "ZNODEEXISTS")
-                        console.log(`${err.toString()}: ${err.path}`);
-                    else
-                        throw new Error(err);
-                });
-            }
+                await this.zkMkdirp(`/lock/master/${myid}`);
+                for(let i = 0; i < $config.pg_slave_count; i++){
+                    await this.zkMkdirp(`/lock/slave/${myid}/${i}`, JSON.stringify({
+                        pg_port: $config.pg_port_start + 1 + i,
+                        app_port: $config.app_port_start + 1 + i,
+                        debug_port: $config.app_debug_port_start + 1 + i
+                    }));
+                }
 
-            await this.zk.create('/config').then(async ()=>{}, err=>{
-                console.log(`${err.toString()}: ${err.path}`);
-            });
+            }
 
             return this.zk.create('/config/deploy.', new String(), ZooKeeper.ZOO_SEQUENCE).then(_p => {
                 this.zk_path = _p;
