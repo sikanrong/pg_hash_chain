@@ -58,7 +58,7 @@ class StandbyNode extends Node{
                     switch(_o.action){
                         case 'granted':
                             const slave_idx = path.basename(_o.path);
-                            if(this.slave_lock_held == null){
+                            if(this.slave_lock_held == null && !this.is_master){
                                 this.slave_lock_held = slave_idx;
                                 this.slave_lock_path = _o.lockfile;
                                 resolve();
