@@ -119,13 +119,6 @@ class StandbyNode extends Node{
                 ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE
             ).then(async _path => {
                 this.zk_path = _path;
-                await this.getMasterLock();
-
-                if(!this.is_master){
-                    await this.getSlaveLocks();
-                }else{
-                    this.replenishSlaves();
-                }
 
                 setTimeout(()=>{
                     if(this.is_master == false && this.slave_lock_held == null){
@@ -134,6 +127,14 @@ class StandbyNode extends Node{
                         process.kill(process.pid);
                     }
                 }, $config.app_lock_timeout);
+
+                await this.getMasterLock();
+
+                if(!this.is_master){
+                    await this.getSlaveLocks();
+                }else{
+                    this.replenishSlaves();
+                }
             }).then(()=>{
                 //start Apoptosis monitor
                 this.apoptosisMonitor();
