@@ -88,7 +88,7 @@ class StandbyNode extends Node{
     replenishSlaves(){
         const watchSlaveLocks = async () => {
             for(let i = 0; i < $config.pg_slave_count; i++){
-                const slave_lock_path = path.join(path.dirname(this.slave_lock_path), '..', i);
+                const slave_lock_path = path.join(`/lock/slave/${this.zk_myid}`, i);
                 const gc_reply = await this.zk.getChildren(slave_lock_path, true);
                 if(gc_reply.children == 0){
                     //spin up a new process
