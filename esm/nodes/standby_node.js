@@ -40,9 +40,12 @@ class StandbyNode extends Node{
                             this.slave_lock_path = null;
                         }
 
-                        //note NO "break;"
+                        //***THERE IS NO BREAK HERE JUST SO YOU KNOW***
+                        //#iGotYourBackBro
                     case 'queued':
                         this.master_lock_path = _o.lockfile;
+
+                        resolve(this.master_lock_path);
                         break;
                 }
             });
@@ -84,7 +87,7 @@ class StandbyNode extends Node{
         await this.updateJsonZKData(this.zk_path, {initialized: true});
     }
 
-    async replenishSlaves(){
+    replenishSlaves(){
         const watchSlaveLocks = async () => {
             for(let i = 0; i < $config.pg_slave_count; i++){
                 const slave_lock_path = path.join(path.dirname(this.slave_lock_path), '..', i);
