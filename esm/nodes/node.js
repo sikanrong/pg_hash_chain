@@ -131,57 +131,59 @@ export default class Node {
         }
     }
 
-    async getLock(_path, prefix){
+    getLock(_path, prefix){
         const outstream = new Subject();
         prefix = prefix || 'lock';
 
-        const grantLock = ()=>{
-            console.log(`Node (pid: ${this.pid}) has been granted the LOCK at ${lockfile}`);
+        process.nextTick(async ()=>{
+            const grantLock = ()=>{
+                console.log(`Node (pid: ${this.pid}) has been granted the LOCK at ${lockfile}`);
+                outstream.next({
+                    lockfile: lockfile,
+                    path: _path,
+                    action: 'granted',
+                    queuePos: 0
+                });
+            };
+
+            const lockfile = await this.zk.create(path.join(_path, `${prefix}.`),
+                new String(),
+                (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then(_p => {return _p}, (err)=>{
+                throw new Error(err);
+            });
+
+            const gc_reply = await this.zk.getChildren(_path).then(_r => {return _r}, (err) => {
+                throw new Error(err);
+            });
+
+            const sorted_locks = gc_reply.children.sort();
+            const mylock_idx = sorted_locks.indexOf(path.basename(lockfile));
+            if(mylock_idx == 0){
+                //if my lock is first i just exit happily
+                grantLock();
+                return;
+            }
+
             outstream.next({
                 lockfile: lockfile,
                 path: _path,
-                action: 'granted',
-                queuePos: 0
+                action: 'queued',
+                queuePos: mylock_idx
             });
-        };
 
-        const lockfile = await this.zk.create(path.join(_path, `${prefix}.`),
-            new String(),
-            (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then(_p => {return _p}, (err)=>{
-            throw new Error(err);
-        });
-
-        const gc_reply = await this.zk.getChildren(_path).then(_r => {return _r}, (err) => {
-            throw new Error(err);
-        });
-
-        const sorted_locks = gc_reply.children.sort();
-        const mylock_idx = sorted_locks.indexOf(path.basename(lockfile));
-        if(mylock_idx == 0){
-            //if my lock is first i just exit happily
-            grantLock();
-            return;
-        }
-
-        outstream.next({
-            lockfile: lockfile,
-            path: _path,
-            action: 'queued',
-            queuePos: mylock_idx
-        });
-
-        //I don't have the lock :(
-        const _prev_lock_path = path.join(_path, sorted_locks[mylock_idx - 1]);
-        await this.zk.exists(_prev_lock_path, true).then(reply => {
-            reply.watch.then((event) => {
-                if(event.type == 'deleted'){
-                    //This node is the new master!
-                    grantLock();
-                }
-            });
-        },
-        reason => {
-            throw new Error(reason);
+            //I don't have the lock :(
+            const _prev_lock_path = path.join(_path, sorted_locks[mylock_idx - 1]);
+            await this.zk.exists(_prev_lock_path, true).then(reply => {
+                    reply.watch.then((event) => {
+                        if(event.type == 'deleted'){
+                            //This node is the new master!
+                            grantLock();
+                        }
+                    });
+                },
+                reason => {
+                    throw new Error(reason);
+                });
         });
 
         return outstream;

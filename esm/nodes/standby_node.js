@@ -20,8 +20,7 @@ class StandbyNode extends Node{
 
     async getMasterLock(){
         return new Promise(async (resolve, reject) => {
-            const observable = await this.getLock(`/lock/master/${this.zk_myid}`);
-            observable.subscribe(async _o => {
+            this.getLock(`/lock/master/${this.zk_myid}`).subscribe(async _o => {
                 switch(_o.action){
                     case 'granted':
                         this.is_master = true;
@@ -55,8 +54,7 @@ class StandbyNode extends Node{
     getSlaveLocks(){
         return new Promise(async (resolve, reject) => {
             for(var i = 0; i < $config.pg_slave_count; i++){
-                const observable = await this.getLock(`/lock/slave/${this.zk_myid}/${i}`);
-                observable.subscribe(async _o => {
+                this.getLock(`/lock/slave/${this.zk_myid}/${i}`).subscribe(async _o => {
                     switch(_o.action){
                         case 'granted':
                             const slave_idx = path.basename(_o.path);
