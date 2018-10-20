@@ -38,7 +38,7 @@
   "app_debug_port_start": 9222,
   "app_deploy_path": "~/hash_chain",
   "app_deploy_from": "file:///var/www/pg_hash_chain",
-  "app_deploy_from_branch": "master_lock",
+  "app_deploy_from_branch": "master",
 
   "apt_repositories": [
     "deb https://apt.2ndquadrant.com/ bionic-2ndquadrant main"
