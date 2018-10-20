@@ -89,7 +89,7 @@ class StandbyNode extends Node{
                 const gc_reply = await this.zk.getChildren(slave_lock_path, true);
                 if(gc_reply.children == 0){
                     //spin up a new process
-                    console.log(`Master (pid: ${this.pid}) is spinning up a new process for ${}`);
+                    console.log(`Master (pid: ${this.pid}) is spinning up a new process for ${slave_lock_path}`);
                     fork(path.join($config.app_deploy_path, 'current', 'cjs', 'nodes', 'standby_node.js'), [
                         `zk_parent_path=${this.zk_parent_path}`
                     ]);
