@@ -115,15 +115,15 @@ export default class Node {
     //same idea as POSIX mkdirp
     //data is only inserted for last node in chain
     async zkMkdirp(_path, data){
-        const path_ar = _path.split('/');
+        const path_ar = _path.substr(1).split('/');
         const path_constructed_ar = [];
         while(path_ar.length > 0){
-            path_constructed_ar.push(path_ar.unshift());
+            path_constructed_ar.push(path_ar.shift());
             let insert_data = undefined;
             if(path_ar.length == 0){
                 insert_data = data; //insert data on the last iteration
             }
-            await this.zk.create(path.join(path_constructed_ar), insert_data).then(_p => {return _p}, (err) => {
+            await this.zk.create(path.join.apply(this, path_constructed_ar), insert_data).then(_p => {return _p}, (err) => {
                 if(err.name != 'ZNODEEXISTS'){
                     throw new Error(err);
                 }
