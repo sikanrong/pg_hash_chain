@@ -6,7 +6,7 @@ import * as $config from "../../cluster";
 import * as path from "path";
 import q from "q";
 import {exec} from "child_process";
-import {Subject} from "rxjs";
+import {Subject, ReplaySubject} from "rxjs";
 
 export default class Node {
 
@@ -193,25 +193,47 @@ export default class Node {
     //the 'initialized' key set to 'true
 
     monitorInitialized(desiredChildCount) {
+        const observables = {};
         const deferreds = {};
+        const subscriptions = {};
+        let nodesInitialized = 0;
         const _d = q.defer();
 
         const monitorChild = (_c) => {
-            this.zk.get(path.join(this.zk_path, _c), true).then(reply => {
+            const outstream = observables[_c];
+
+            const _cpath = path.join(this.zk_path, _c);
+            this.zk.get(_cpath, true).then(reply => {
                 const _data = JSON.parse(reply.data);
                 if(_data.initialized){
-                    deferreds[_c].resolve();
-                    console.log(`monitorInitialized: ${this.zk_path} init signal received`);
+                    outstream.next({
+                        path: _cpath,
+                        action: 'init'
+                    });
                 }
 
-
                 reply.watch.then((event) => {
-                    monitorChild(_c);
+                    if(event.type == 'deleted'){
+                        outstream.next({
+                            path: _cpath,
+                            action: 'deleted'
+                        });
+                    }else{
+                        monitorChild(_c);
+                    }
                 });
             }, (err) => {
-                deferreds[_c].reject(err);
-                throw new Error(err);
+                if(err.name == 'ZNONODE'){
+                    outstream.next({
+                        path: _cpath,
+                        action: 'deleted'
+                    });
+                }else{
+                    throw new Error(err);
+                }
             });
+
+            return outstream;
         };
 
         const monitorChildren = () => {
@@ -221,10 +243,35 @@ export default class Node {
                         return;
 
                     deferreds[child] = q.defer();
+                    observables[child] = new Subject();
+
+                    subscriptions[child] = observables[child].subscribe(_o => {
+                        switch(_o.action){
+                            case 'init':
+                                nodesInitialized++;
+                                deferreds[child].resolve();
+                                subscriptions[child].unsubscribe();
+
+                                console.log(`monitorInitialized: ${_o.path} INIT signal received (${nodesInitialized}/${desiredChildCount})`);
+                                break;
+                            case 'delete':
+                                deferreds[child].reject();
+                                delete deferreds[child];
+                                delete observables[child];
+                                subscriptions[child].unsubscribe();
+                                delete subscriptions[child];
+                                nodesInitialized--;
+
+                                console.log(`monitorInitialized: ${_o.path} DELETE signal received (${nodesInitialized}/${desiredChildCount})`);
+                                break;
+                        }
+                    });
+
                     monitorChild(child);
+
                 });
 
-                console.log(`MonitorInitialized: monitoring ${reply.children.length} for init signal.`);
+                console.log(`monitorInitialized: monitoring ${reply.children.length}/${desiredChildCount} for init signal.`);
 
                 if(reply.children.length == desiredChildCount){
 
