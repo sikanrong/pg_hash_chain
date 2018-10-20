@@ -128,7 +128,7 @@ class StandbyNode extends Node{
                 }
 
                 setTimeout(()=>{
-                    if(!this.is_master && !this.slave_lock_held){
+                    if(this.is_master == false && this.slave_lock_held == null){
                         console.log(`Killing (pid: ${this.pid}) ${this.zk_path} for not being able to aquire any locks.`);
                         //kill this process if it has obtained no locks after the timeout
                         process.kill(process.pid);
