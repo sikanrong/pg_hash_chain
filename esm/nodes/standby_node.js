@@ -13,6 +13,7 @@ class StandbyNode extends Node{
         this.is_master = false;
         this.slave_lock_held = null;
         this.slave_lock_path = null;
+        this.slave_locks_granted = []; //but we can only keep one!
         this.master_lock_path = null;
 
         this.init();
@@ -25,19 +26,20 @@ class StandbyNode extends Node{
                     case 'granted':
                         this.is_master = true;
 
-                        if(this.slave_lock_held){
+                        while(this.slave_locks_granted > 0){
+                            const _lf = this.slave_locks_granted.shift();
                             //release the slave lock we hold so that another process can take over that slave slot
-                            const g_reply = await this.zk.get(this.slave_lock_path).then(_r => {return _r}, err => {
+                            const g_reply = await this.zk.get(_lf).then(_r => {return _r}, err => {
                                 throw new Error(err);
                             });
 
-                            await this.zk.delete(this.slave_lock_path, g_reply.stat.version).then(_r => {return _r}, err => {
+                            await this.zk.delete(_lf, g_reply.stat.version).then(_r => {return _r}, err => {
                                 throw new Error(err);
                             });
-
-                            this.slave_lock_held = null;
-                            this.slave_lock_path = null;
                         }
+
+                        this.slave_lock_held = null;
+                        this.slave_lock_path = null;
 
                         this.replenishSlaves();
 
@@ -60,15 +62,19 @@ class StandbyNode extends Node{
                     switch(_o.action){
                         case 'granted':
                             const slave_idx = path.basename(_o.path);
-                            if(this.slave_lock_held == null && !this.is_master){
+                            this.slave_locks_granted.push(_o.lockfile);
+                            if(!this.is_master){
                                 this.slave_lock_held = slave_idx;
                                 this.slave_lock_path = _o.lockfile;
-                                resolve();
-                            }else{
-                                const g_reply = await this.zk.get(_o.lockfile).then(_r => {return _r}, (err) => {
+                            }
+
+                            while(this.slave_locks_granted.length > ((this.is_master)? 0 : 1)){
+                                const _lf = this.slave_locks_granted.shift();
+                                console.log(`Node (pid: ${this.pid}) reseasing slave LOCK ${lf}`);
+                                const g_reply = await this.zk.get(_lf).then(_r => {return _r}, (err) => {
                                     throw new Error(err);
                                 });
-                                const d_reply = await this.zk.delete(_o.lockfile, g_reply.stat.version).then(_r => {return _r}, (err) => {
+                                const d_reply = await this.zk.delete(_lf, g_reply.stat.version).then(_r => {return _r}, (err) => {
                                     throw new Error(err);
                                 });
                             }
