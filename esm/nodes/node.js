@@ -97,7 +97,6 @@ export default class Node {
     }
 
     apoptosisMonitor () {
-        console.log(`${this.zk_path} ONLINE: Monitoring for signs of shutdown signal...`);
         this.zk.exists(this.zk_path, true).then(reply => {
             if(!reply.stat){
                 this.apoptosis();
