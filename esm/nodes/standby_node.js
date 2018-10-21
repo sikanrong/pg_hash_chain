@@ -116,7 +116,7 @@ class StandbyNode extends Node{
         const global_idx = ((this.is_master)? 0 : (this.slave_lock_held + 1));
         const pg_data_dir = path.join($config.pg_cluster_path, `node${global_idx}`);
 
-        const cp = spawn(`postgres -D ${pg_data_dir} -p ${conf.pg_port}`);
+        const cp = spawn(`postgres -D ${pg_data_dir} -p ${$config.pg_port_start + global_idx}`);
         const ws = fs.createWriteStream(`${$config.app_deploy_path}/current/tmp/psql${global_idx}.log`);
         cp.stdout.pipe(ws);
         cp.stderr.pipe(ws);
