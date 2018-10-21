@@ -39,6 +39,8 @@ class StandbyNode extends Node{
                             this.slave_lock_path = null;
                         }
 
+                        this.replenishSlaves();
+
                         //***THERE IS NO BREAK HERE JUST SO YOU KNOW***
                         //#iGotYourBackBro
                     case 'queued':
@@ -132,8 +134,6 @@ class StandbyNode extends Node{
 
                 if(!this.is_master){
                     await this.getSlaveLocks();
-                }else{
-                    this.replenishSlaves();
                 }
             }).then(()=>{
                 //start Apoptosis monitor
