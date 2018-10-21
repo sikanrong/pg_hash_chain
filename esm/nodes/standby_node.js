@@ -91,7 +91,7 @@ class StandbyNode extends Node{
         const watchSlaveLocks = async () => {
             for(let i = 0; i < $config.pg_slave_count; i++){
                 const gc_reply = await this.zk.getChildren(`/lock/slave/${this.zk_myid}/${i}`, true);
-                if(gc_reply.children == 0){
+                if(gc_reply.children.length == 0){
                     //spin up a new process
                     console.log(`Master (pid: ${this.pid}) is spinning up a new process for ${slave_lock_path}`);
                     fork(path.join($config.app_deploy_path, 'current', 'cjs', 'nodes', 'standby_node.js'), [
