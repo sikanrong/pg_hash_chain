@@ -121,6 +121,8 @@ class StandbyNode extends Node{
             '-D', pg_data_dir
         ]);
 
+        cp.stderr.pipe(process.stderr);
+
         const g_reply = await this.zk.get(this.zk_path);
 
         const conf = JSON.parse(g_reply.data);

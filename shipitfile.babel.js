@@ -132,7 +132,7 @@ export default shipit => {
             sudo useradd -m bdr || echo "user not created";
             sudo useradd -m bdrro || echo "user not created";
             
-            initdb -D ${$config.pg_master_basebackup_path} -A trust -U bdr;
+            initdb -D ${$config.pg_master_basebackup_path} -A trust -U add;
             
             cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/node0
         `);
