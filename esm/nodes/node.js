@@ -210,6 +210,12 @@ export default class Node {
         let nodesInitialized = 0;
         const _d = q.defer();
 
+        const checkFinished = () => {
+            if(nodesInitialized == desiredChildCount){
+                _d.resolve();
+            }
+        }
+
         const monitorChild = (_c) => {
             const outstream = observables[_c];
 
@@ -271,15 +277,15 @@ export default class Node {
                                 console.log(`monitorInitialized: ${_o.path} DELETE signal received (${nodesInitialized}/${desiredChildCount})`);
                                 break;
                         }
+
+                        checkFinished();
                     });
 
                     monitorChild(child);
 
                 });
 
-                if(nodesInitialized == desiredChildCount){
-                    _d.resolve();
-                }
+                checkFinished();
 
                 reply.watch.then(event => {
                     monitorChildren();
