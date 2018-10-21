@@ -88,11 +88,24 @@ export default shipit => {
         await shipit.local("mkdir -p ./tmp");
     });
 
-    shipit.blTask('install-npm-packages', async () => {
+    shipit.blTask('install_npm_packages', async () => {
         await shipit.remote(
             `cd ${$config.app_deploy_path}/current; 
             npm install;`
         );
+    });
+    
+    shipit.blTask('init_pg_structure', async () => {
+        await shipit.remote(`
+            source ~/.profile;
+            mkdir -p ${$config.pg_cluster_path};
+            mkdir -p ${$config.pg_wal_archive_path};
+            
+            sudo useradd -m bdr || echo "user not created";
+            sudo useradd -m bdrro || echo "user not created";
+            
+            initdb -D ${$config.pg_master_basebackup_path} -A trust -U bdr || echo "Database dir pg_master_basebackup_path already exists";
+        `);
     });
 
     shipit.task('remote_zk_configure', async () => {
@@ -123,13 +136,14 @@ export default shipit => {
             return shipit.start([
                 'configure-environment',
                 'install-apt-packages',
-                'configure-zookeeper'
+                'configure-zookeeper',
+                'init_pg_structure'
             ]);
         });
 
         shipit.on('deployed', async () => {
             return shipit.start([
-                'install-npm-packages',
+                'install_npm_packages',
                 'remote_zk_configure'
             ]);
         });
