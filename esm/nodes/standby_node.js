@@ -19,6 +19,19 @@ class StandbyNode extends Node{
         this.init();
     }
 
+    async releaseSurplusLocks(untilHowMany){
+        while(this.slave_locks_granted.length > untilHowMany){
+            const _lf = this.slave_locks_granted.shift();
+            console.log(`Node (pid: ${this.pid}) reseasing slave LOCK ${_lf}`);
+            const g_reply = await this.zk.get(_lf).then(_r => {return _r}, (err) => {
+                throw new Error(err);
+            });
+            const d_reply = await this.zk.delete(_lf, g_reply.stat.version).then(_r => {return _r}, (err) => {
+                throw new Error(err);
+            });
+        }
+    }
+
     async getMasterLock(){
         return new Promise(async (resolve, reject) => {
             this.getLock(`/lock/master/${this.zk_myid}`).subscribe(async _o => {
@@ -26,17 +39,7 @@ class StandbyNode extends Node{
                     case 'granted':
                         this.is_master = true;
 
-                        while(this.slave_locks_granted > 0){
-                            const _lf = this.slave_locks_granted.shift();
-                            //release the slave lock we hold so that another process can take over that slave slot
-                            const g_reply = await this.zk.get(_lf).then(_r => {return _r}, err => {
-                                throw new Error(err);
-                            });
-
-                            await this.zk.delete(_lf, g_reply.stat.version).then(_r => {return _r}, err => {
-                                throw new Error(err);
-                            });
-                        }
+                        await this.releaseSurplusLocks(0);
 
                         this.slave_lock_held = null;
                         this.slave_lock_path = null;
@@ -68,16 +71,9 @@ class StandbyNode extends Node{
                                 this.slave_lock_path = _o.lockfile;
                             }
 
-                            while(this.slave_locks_granted.length > ((this.is_master)? 0 : 1)){
-                                const _lf = this.slave_locks_granted.shift();
-                                console.log(`Node (pid: ${this.pid}) reseasing slave LOCK ${lf}`);
-                                const g_reply = await this.zk.get(_lf).then(_r => {return _r}, (err) => {
-                                    throw new Error(err);
-                                });
-                                const d_reply = await this.zk.delete(_lf, g_reply.stat.version).then(_r => {return _r}, (err) => {
-                                    throw new Error(err);
-                                });
-                            }
+                            await this.releaseSurplusLocks((this.is_master)? 0 : 1);
+
+                            resolve();
 
                             break;
                         case 'queued':
