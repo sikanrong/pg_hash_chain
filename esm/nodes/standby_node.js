@@ -4,7 +4,7 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import Node from "./node";
-import {spawn} from "child_process";
+import {exec} from "child_process";
 
 class StandbyNode extends Node{
     constructor(){
@@ -99,7 +99,7 @@ class StandbyNode extends Node{
                     console.log(`Master (pid: ${this.pid}) is spinning up a new process for ${slave_lock_path}`);
                     var _node_path = path.join($config.app_deploy_path, 'current', 'cjs', 'nodes', 'standby_node.js');
 
-                    spawn(`node ${_node_path} zk_parent_path=${this.zk_parent_path}`);
+                    exec(`nohup node ${_node_path} zk_parent_path=${this.zk_parent_path} &`);
                 }
 
                 gc_reply.watch.then(watchSlaveLocks.bind(this));
