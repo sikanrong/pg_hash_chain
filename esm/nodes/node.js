@@ -31,7 +31,7 @@ export default class Node {
 
         setInterval(async () => {
             //heartbeat change
-            const g_reply = await this.zk.get(this.zk_path).then(_r => {return _r}, (err) => {
+            const g_reply = await this.zk.get('/config').then(_r => {return _r}, (err) => {
                 if(err.name == 'ZNONODE'){
                     this.apoptosis();
                 }
