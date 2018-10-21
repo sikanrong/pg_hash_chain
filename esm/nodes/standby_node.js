@@ -4,7 +4,7 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import Node from "./node";
-import {exec, spawn, fork} from "child_process";
+import {spawnSync, exec} from "child_process";
 
 class StandbyNode extends Node{
     constructor(){
