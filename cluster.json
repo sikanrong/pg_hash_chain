@@ -35,7 +35,7 @@
   "zk_connection_timeout": 5000,
   
   "app_port_start": 8080,
-  "app_lock_timeout": 20000,
+  "app_lock_timeout": 12000,
   "app_debug_port_start": 9222,
   "app_deploy_path": "~/hash_chain",
   "app_deploy_from": "file:///var/www/pg_hash_chain",

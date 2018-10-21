@@ -22,6 +22,7 @@ export default class Node {
         this.zk_myid = null;
         this.host = null;
         this.user = null;
+        this.initialized = false;
     }
 
     async init(){
@@ -205,7 +206,6 @@ export default class Node {
 
     monitorInitialized(desiredChildCount) {
         const observables = {};
-        const deferreds = {};
         const subscriptions = {};
         let nodesInitialized = 0;
         const _d = q.defer();
@@ -217,6 +217,7 @@ export default class Node {
             this.zk.get(_cpath, true).then(reply => {
                 const _data = JSON.parse(reply.data);
                 if(_data.initialized){
+                    this.initialized = true;
                     outstream.next({
                         path: _cpath,
                         action: 'init'
@@ -227,7 +228,7 @@ export default class Node {
                     if(event.type == 'deleted'){
                         outstream.next({
                             path: _cpath,
-                            action: 'deleted'
+                            action: (this.initialized)? 'init_deleted' : 'uninit_deleted'
                         });
                     }else{
                         monitorChild(_c);
@@ -237,7 +238,7 @@ export default class Node {
                 if(err.name == 'ZNONODE'){
                     outstream.next({
                         path: _cpath,
-                        action: 'deleted'
+                        action: (this.initialized)? 'init_deleted' : 'uninit_deleted'
                     });
                 }else{
                     throw new Error(err);
@@ -250,29 +251,23 @@ export default class Node {
         const monitorChildren = () => {
             this.zk.getChildren(this.zk_path, true).then((reply) => {
                 reply.children.forEach(child => {
-                    if(deferreds[child])
+                    if(observables[child])
                         return;
 
-                    deferreds[child] = q.defer();
                     observables[child] = new Subject();
-
                     subscriptions[child] = observables[child].subscribe(_o => {
                         switch(_o.action){
                             case 'init':
                                 nodesInitialized++;
-                                deferreds[child].resolve();
                                 subscriptions[child].unsubscribe();
-
                                 console.log(`monitorInitialized: ${_o.path} INIT signal received (${nodesInitialized}/${desiredChildCount})`);
                                 break;
-                            case 'delete':
-                                deferreds[child].reject();
-                                delete deferreds[child];
+                            case 'init_deleted':
+                                nodesInitialized--;
+                            case 'uninit_deleted':
                                 delete observables[child];
                                 subscriptions[child].unsubscribe();
                                 delete subscriptions[child];
-                                nodesInitialized--;
-
                                 console.log(`monitorInitialized: ${_o.path} DELETE signal received (${nodesInitialized}/${desiredChildCount})`);
                                 break;
                         }
@@ -282,15 +277,8 @@ export default class Node {
 
                 });
 
-                console.log(`monitorInitialized: monitoring ${reply.children.length}/${desiredChildCount} for init signal.`);
-
-                if(reply.children.length == desiredChildCount){
-
-                    q.all(Object.keys(deferreds).map(_k => {
-                        return deferreds[_k].promise;
-                    })).then(()=>{
-                        _d.resolve();
-                    });
+                if(nodesInitialized == desiredChildCount){
+                    _d.resolve();
                 }
 
                 reply.watch.then(event => {
