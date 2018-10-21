@@ -22,7 +22,6 @@ export default class Node {
         this.zk_myid = null;
         this.host = null;
         this.user = null;
-        this.initialized = false;
     }
 
     async init(){
@@ -207,6 +206,7 @@ export default class Node {
     monitorInitialized(desiredChildCount) {
         const observables = {};
         const subscriptions = {};
+        const initialized = {};
         let nodesInitialized = 0;
         const _d = q.defer();
 
@@ -217,7 +217,7 @@ export default class Node {
             this.zk.get(_cpath, true).then(reply => {
                 const _data = JSON.parse(reply.data);
                 if(_data.initialized){
-                    this.initialized = true;
+                    initialized[_c] = true;
                     outstream.next({
                         path: _cpath,
                         action: 'init'
@@ -228,7 +228,7 @@ export default class Node {
                     if(event.type == 'deleted'){
                         outstream.next({
                             path: _cpath,
-                            action: (this.initialized)? 'init_deleted' : 'uninit_deleted'
+                            action: (initialized[_c])? 'init_deleted' : 'uninit_deleted'
                         });
                     }else{
                         monitorChild(_c);
@@ -238,7 +238,7 @@ export default class Node {
                 if(err.name == 'ZNONODE'){
                     outstream.next({
                         path: _cpath,
-                        action: (this.initialized)? 'init_deleted' : 'uninit_deleted'
+                        action: (initialized[_c])? 'init_deleted' : 'uninit_deleted'
                     });
                 }else{
                     throw new Error(err);
