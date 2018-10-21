@@ -21,7 +21,7 @@ class StandbyNode extends Node{
 
     async releaseSurplusLocks(untilHowMany){
         while(this.slave_locks_granted.length > untilHowMany){
-            const _lf = this.slave_locks_granted.shift();
+            const _lf = this.slave_locks_granted.pop();
             console.log(`Node (pid: ${this.pid}) reseasing slave LOCK ${_lf}`);
             const g_reply = await this.zk.get(_lf).then(_r => {return _r}, (err) => {
                 throw new Error(err);
@@ -65,11 +65,13 @@ class StandbyNode extends Node{
                     switch(_o.action){
                         case 'granted':
                             const slave_idx = path.basename(_o.path);
-                            this.slave_locks_granted.push(_o.lockfile);
-                            if(!this.is_master){
+
+                            if(!this.is_master && this.slave_locks_granted.length == 0){
                                 this.slave_lock_held = slave_idx;
                                 this.slave_lock_path = _o.lockfile;
                             }
+                            this.slave_locks_granted.push(_o.lockfile);
+
 
                             await this.releaseSurplusLocks((this.is_master)? 0 : 1);
 
