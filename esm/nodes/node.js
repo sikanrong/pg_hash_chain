@@ -22,25 +22,24 @@ export default class Node {
         this.zk_myid = null;
         this.host = null;
         this.user = null;
-        this.heartbeat = 0;
     }
 
     async init(){
         await this.setZkMyid();
+        this.host = $config.nodes[this.zk_myid].host;
+        this.user = $config.nodes[this.zk_myid].user;
 
         setInterval(async () => {
             //heartbeat change
             const g_reply = await this.zk.get(this.zk_path).then(_r => {return _r}, (err) => {
+                if(err.name == 'ZNONODE'){
+                    this.apoptosis();
+                }
+
                 throw new Error(err);
             });
 
-            await this.zk.set(this.zk_path, new String(this.heartbeat++), g_reply.stat.version).then(_r => {return _r}, (err)=>{
-                throw new Error(err);
-            });
         }, 1000);
-
-        this.host = $config.nodes[this.zk_myid].host;
-        this.user = $config.nodes[this.zk_myid].user;
     }
 
     async setZkMyid(){
