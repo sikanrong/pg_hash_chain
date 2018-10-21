@@ -112,7 +112,7 @@ export default shipit => {
                 }));
 
                 await shipit.copyToRemote(`./tmp/recovery.slave${_i}.conf`, `${$config.pg_cluster_path}/slave${_i}/recovery.conf`);
-
+                await shipit.copyToRemote(`./tmp/pg_hba.conf`, `${$config.pg_cluster_path}/slave${_i}/pg_hba.conf`);
             };
 
             await Promise.all(slave_indices.map(_i => {
@@ -136,6 +136,11 @@ export default shipit => {
             cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/master
         `);
 
+        fs.writeFileSync(`./tmp/pg_hba.conf`,
+            `${Object.keys($config.nodes).map(myid => {
+                return `host all all ${$config.nodes[myid].host}/32 trust`
+            }).join("\n")}\nlocal all all trust\n`); //blow our postgres access control wide open. that's not the point of this exercise.
+
         const ssnames = slave_indices.map(_i => {
             return `slave${_i}`
         });
@@ -147,6 +152,7 @@ export default shipit => {
         }));
 
         await shipit.copyToRemote("./tmp/postgresql.master.conf", `${$config.pg_cluster_path}/master/postgresql.conf`);
+        await shipit.copyToRemote("./tmp/pg_hba.conf", `${$config.pg_cluster_path}/master/pg_hba.conf`);
 
         await configureSlaves();
     });
