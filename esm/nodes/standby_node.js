@@ -113,14 +113,17 @@ class StandbyNode extends Node{
     }
 
     async launchPostgresql() {
-        const pg_data_dir = $config.pg_cluster_path + '/node' + ((this.is_master)? 0 : (this.slave_lock_held + 1));
+        const global_idx = ((this.is_master)? 0 : (this.slave_lock_held + 1));
+        const pg_data_dir = path.join($config.pg_cluster_path, `node${global_idx}`);
 
-        let g_reply = await this.zk.get(`/lock/slave/${this.zk_myid}/${this.slave_lock_held}`);
-        let conf = JSON.parse(g_reply.data);
+        const cp = spawn(`postgres -D ${pg_data_dir} -p ${conf.pg_port}`);
+        const ws = fs.createWriteStream(`${$config.app_deploy_path}/current/tmp/psql${global_idx}.log`);
+        cp.stdout.pipe(ws);
+        cp.stderr.pipe(ws);
 
-        const cp = spawn(`nohup postgres -D ${pg_data_dir} -p ${conf.pg_port} -l > &`);
-        g_reply = await this.zk.get(this.zk_path);
-        conf = JSON.parse(g_reply.data);
+        const g_reply = await this.zk.get(this.zk_path);
+
+        const conf = JSON.parse(g_reply.data);
         conf.pg_pid = cp.pid;
         await this.zk.set(this.zk_path, JSON.stringify(conf), g_reply.stat.version);
     }

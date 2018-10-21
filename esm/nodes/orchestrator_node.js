@@ -21,11 +21,7 @@ export default class OrchestratorNode extends Node{
             for(let myid in $config.nodes){
                 await this.zkMkdirp(`/lock/master/${myid}`);
                 for(let i = 0; i < $config.pg_slave_count; i++){
-                    await this.zkMkdirp(`/lock/slave/${myid}/${i}`, JSON.stringify({
-                        pg_port: $config.pg_port_start + 1 + i,
-                        app_port: $config.app_port_start + 1 + i,
-                        debug_port: $config.app_debug_port_start + 1 + i
-                    }));
+                    await this.zkMkdirp(`/lock/slave/${myid}/${i}`);
                 }
 
             }
