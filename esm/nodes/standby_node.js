@@ -4,7 +4,7 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import Node from "./node";
-import {exec} from "child_process";
+import {exec, spawn, fork} from "child_process";
 
 class StandbyNode extends Node{
     constructor(){
@@ -64,7 +64,7 @@ class StandbyNode extends Node{
                 this.getLock(`/lock/slave/${this.zk_myid}/${i}`).subscribe(async _o => {
                     switch(_o.action){
                         case 'granted':
-                            const slave_idx = path.basename(_o.path);
+                            const slave_idx = parseInt(path.basename(_o.path));
 
                             if(!this.is_master && this.slave_locks_granted.length == 0){
                                 this.slave_lock_held = slave_idx;
@@ -110,9 +110,19 @@ class StandbyNode extends Node{
             };
             watchSlaveLocks();
         });
+    }
 
+    async launchPostgresql() {
+        const pg_data_dir = $config.pg_cluster_path + '/node' + ((this.is_master)? 0 : (this.slave_lock_held + 1));
 
+        let g_reply = await this.zk.get(`/lock/slave/${this.zk_myid}/${this.slave_lock_held}`);
+        let conf = JSON.parse(g_reply.data);
 
+        const cp = spawn(`nohup postgres -D ${pg_data_dir} -p ${conf.pg_port} -l > &`);
+        g_reply = await this.zk.get(this.zk_path);
+        conf = JSON.parse(g_reply.data);
+        conf.pg_pid = cp.pid;
+        await this.zk.set(this.zk_path, JSON.stringify(conf), g_reply.stat.version);
     }
 
     async init(){
@@ -147,6 +157,8 @@ class StandbyNode extends Node{
                 //start Apoptosis monitor
                 this.apoptosisMonitor();
                 return;
+            }).then(async ()=>{
+                await this.launchPostgresql();
             }).then(async () => {
                 await this.setInitialized();
             });

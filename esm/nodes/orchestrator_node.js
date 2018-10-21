@@ -51,8 +51,12 @@ export default class OrchestratorNode extends Node{
 
                         const _o = JSON.parse(json_str);
 
+                        const pids = [_o.pid, _o.pg_pid].filter(_p => {
+                            return (_p !== undefined);
+                        });
+
                         return new Promise((resolve, reject) => {
-                            exec(`sudo kill ${_o.pid}`, {
+                            exec(`sudo kill ${pids.join(' ')}`, {
                                 user: _o.user,
                                 host: _o.host,
                                 key: $config.ssh_key

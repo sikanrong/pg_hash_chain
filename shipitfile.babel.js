@@ -99,10 +99,11 @@ export default shipit => {
 
         const slave_indices = Array.from(Array($config.pg_slave_count).keys());
         const configureSlaves = async ()=>{
-            const cSlave = async _i=>{
-                await shipit.remote(`cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/slave${_i}`);
+            const cSlave = async _io=>{
+                const _i = _io + 1;
+                await shipit.remote(`cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/node${_i}`);
                 //slave postgresql.conf doesn't really have any config-dependent data in it.
-                await shipit.copyToRemote('./remote_cfg/postgresql.slave.conf', `${$config.pg_cluster_path}/slave${_i}/postgresql.conf`);
+                await shipit.copyToRemote('./remote_cfg/postgresql.slave.conf', `${$config.pg_cluster_path}/node${_i}/postgresql.conf`);
 
                 const template = Handlebars.compile(fs.readFileSync('./remote_cfg/recovery.slave.conf', 'utf8'), {noEscape: true});
                 fs.writeFileSync(`./tmp/recovery.slave${_i}.conf`, template({
@@ -111,8 +112,8 @@ export default shipit => {
                     application_name: `slave${_i}`
                 }));
 
-                await shipit.copyToRemote(`./tmp/recovery.slave${_i}.conf`, `${$config.pg_cluster_path}/slave${_i}/recovery.conf`);
-                await shipit.copyToRemote(`./tmp/pg_hba.conf`, `${$config.pg_cluster_path}/slave${_i}/pg_hba.conf`);
+                await shipit.copyToRemote(`./tmp/recovery.slave${_i}.conf`, `${$config.pg_cluster_path}/node${_i}/recovery.conf`);
+                await shipit.copyToRemote(`./tmp/pg_hba.conf`, `${$config.pg_cluster_path}/node${_i}/pg_hba.conf`);
             };
 
             await Promise.all(slave_indices.map(_i => {
@@ -133,7 +134,7 @@ export default shipit => {
             
             initdb -D ${$config.pg_master_basebackup_path} -A trust -U bdr;
             
-            cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/master
+            cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/node0
         `);
 
         fs.writeFileSync(`./tmp/pg_hba.conf`,
@@ -151,8 +152,8 @@ export default shipit => {
             synchronous_standby_names: ssnames.join(', ')
         }));
 
-        await shipit.copyToRemote("./tmp/postgresql.master.conf", `${$config.pg_cluster_path}/master/postgresql.conf`);
-        await shipit.copyToRemote("./tmp/pg_hba.conf", `${$config.pg_cluster_path}/master/pg_hba.conf`);
+        await shipit.copyToRemote("./tmp/postgresql.master.conf", `${$config.pg_cluster_path}/node0/postgresql.conf`);
+        await shipit.copyToRemote("./tmp/pg_hba.conf", `${$config.pg_cluster_path}/node0/pg_hba.conf`);
 
         await configureSlaves();
     });
