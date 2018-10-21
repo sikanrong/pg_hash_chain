@@ -4,7 +4,7 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import Node from "./node";
-import {fork} from "child_process";
+import {spawn} from "child_process";
 
 class StandbyNode extends Node{
     constructor(){
@@ -88,23 +88,27 @@ class StandbyNode extends Node{
     }
 
     replenishSlaves(){
-        const watchSlaveLocks = async () => {
-            for(let i = 0; i < $config.pg_slave_count; i++){
+        const slave_indices = Array.apply(null, {length: $config.pg_slave_count}).map(Function.call, Number);
+
+        slave_indices.forEach((i)=>{
+            const watchSlaveLocks = async () => {
                 const slave_lock_path = `/lock/slave/${this.zk_myid}/${i}`;
                 const gc_reply = await this.zk.getChildren(slave_lock_path, true);
                 if(gc_reply.children.length == 0){
                     //spin up a new process
                     console.log(`Master (pid: ${this.pid}) is spinning up a new process for ${slave_lock_path}`);
-                    fork(path.join($config.app_deploy_path, 'current', 'cjs', 'nodes', 'standby_node.js'), [
-                        `zk_parent_path=${this.zk_parent_path}`
-                    ]);
+                    var _node_path = path.join($config.app_deploy_path, 'current', 'cjs', 'nodes', 'standby_node.js');
+
+                    spawn(`node ${_node_path} zk_parent_path=${this.zk_parent_path}`);
                 }
 
                 gc_reply.watch.then(watchSlaveLocks.bind(this));
-            }
-        };
+            };
+            watchSlaveLocks();
+        });
 
-        watchSlaveLocks();
+
+
     }
 
     async init(){
