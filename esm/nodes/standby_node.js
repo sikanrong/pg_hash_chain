@@ -143,12 +143,12 @@ class StandbyNode extends Node{
             '-p', $config.pg_port_start,
             '-U', this.user,
             $config.pg_database_name
-        ]).stdout.pipe(process.stdout);
+        ]);
 
         spawnSync(`/usr/lib/postgresql/9.4/bin/pg_basebackup`, [
             '-p', $config.pg_port_start,
             '-D', $config.pg_master_basebackup_path.replace(/~/g, process.env.HOME)
-        ]).stdout.pipe(process.stdout);
+        ]);
 
         await new Promise((resolve, reject) => {
             pool.connect(async (err, client, done) => {
