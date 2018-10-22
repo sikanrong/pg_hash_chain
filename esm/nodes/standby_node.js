@@ -124,6 +124,11 @@ class StandbyNode extends Node{
             '-D', pg_data_dir.replace(/~/g, process.env.HOME)
         ]);
 
+        spawnSync(`createdb`, [
+            '-p', $config.pg_port_start,
+            '-U', this.user, $config.pg_database_name
+        ]);
+
         const pool = new pg.Pool({
             host: 'localhost',
             user: this.user,
