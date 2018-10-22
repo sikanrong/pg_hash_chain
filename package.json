@@ -32,7 +32,8 @@
     "handlebars": "^4.0.12",
     "q": "^1.5.1",
     "ssh-exec": "^2.0.0",
-    "rxjs": "^6.3.3"
+    "rxjs": "^6.3.3",
+    "pg-native": "^3.0.0"
   },
   "author": "Alexander Pilafian",
   "license": "GPL-3.0",
