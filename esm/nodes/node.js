@@ -76,8 +76,8 @@ export default class Node {
                 });
 
                 if(!reply){
-                    if(++tries > max_retries){
-                        throw new Error(`Update ${path}: max_retries (${max_retries}) exceeded`);
+                    if(++tries > maxRetries){
+                        throw new Error(`Update ${path}: maxRetries (${maxRetries}) exceeded`);
                     }else{
                         return await doUpdate(path, data);
                     }
