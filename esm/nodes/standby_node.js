@@ -204,15 +204,17 @@ class StandbyNode extends Node{
 
     async initPostgresSlave(){
         //watchMaster for init
-        const gc_reply = await this.zk.getChildren(`/lock/master/${this.zk_myid}`);
-        const master_lock = gc_reply.children[0];
-        const g_reply = await this.zk.get(`/lock/master/${this.zk_myid}/${master_lock}`);
-        const lock_o = JSON.parse(g_reply.data);
 
-        const master_config_path = lock_o.config_path;
 
-        console.log(`Node (pid: ${this.pid}) waiting for master (${master_config_path}) to init DB...`);
+        console.log(`Node (pid: ${this.pid}) waiting for master to init DB...`);
         const watchMasterInit = async () => {
+            const gc_reply = await this.zk.getChildren(`/lock/master/${this.zk_myid}`);
+            const master_lock = gc_reply.children[0];
+            const g_reply = await this.zk.get(`/lock/master/${this.zk_myid}/${master_lock}`);
+            const lock_o = JSON.parse(g_reply.data);
+
+            const master_config_path = lock_o.config_path;
+
             const mg_reply = await this.zk.get(master_config_path, true);
             const conf_o = JSON.parse(mg_reply.data);
 
