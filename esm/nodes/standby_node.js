@@ -46,6 +46,7 @@ class StandbyNode extends Node{
                         this.slave_lock_path = null;
 
                         this.replenishSlaves();
+                        this.initPostgresMaster();
 
                         //***THERE IS NO BREAK HERE JUST SO YOU KNOW***
                         //#iGotYourBackBro
@@ -264,9 +265,7 @@ class StandbyNode extends Node{
     }
 
     async launchPostgresql() {
-        if(this.is_master){
-            return this.initPostgresMaster();
-        }else{
+        if(!this.is_master){
             return this.initPostgresSlave();
         }
     }
