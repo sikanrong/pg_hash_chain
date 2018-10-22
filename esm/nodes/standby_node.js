@@ -127,6 +127,7 @@ class StandbyNode extends Node{
         const pool = new pg.Pool({
             host: 'localhost',
             user: this.user,
+            post: $config.pg_port_start,
             database: $config.pg_database_name
         });
 
