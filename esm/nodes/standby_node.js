@@ -4,7 +4,8 @@ import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import Node from "./node";
-import {spawn, exec} from "child_process";
+import {spawn, exec, spawnSync} from "child_process";
+import * as pg from "pg";
 
 class StandbyNode extends Node{
     constructor(){
@@ -112,24 +113,160 @@ class StandbyNode extends Node{
         });
     }
 
-    async launchPostgresql() {
-        const global_idx = ((this.is_master)? 0 : (this.slave_lock_held + 1));
-        const pg_data_dir = path.join($config.pg_cluster_path, `node${global_idx}`);
+    async initPostgresMaster(){
+        const pg_data_dir = path.join($config.pg_cluster_path, 'node0');
 
-        console.log(`Node (pid: ${this.pid}) PostgreSQL START with {port: ${($config.pg_port_start + global_idx)}, data: ${pg_data_dir.replace(/~/g, process.env.HOME)}}`);
+        console.log(`Node (pid: ${this.pid}) PostgreSQL MASTER START with {port: ${($config.pg_port_start)}, data: ${pg_data_dir.replace(/~/g, process.env.HOME)}}`);
 
         const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
-            '-p', ($config.pg_port_start + global_idx),
+            '-p', $config.pg_port_start,
             '-D', pg_data_dir.replace(/~/g, process.env.HOME)
         ]);
 
+        const pool = new pg.Pool({
+            host: 'localhost',
+            user: this.user,
+            database: $config.pg_database_name
+        });
+
         cp.stderr.pipe(process.stderr);
+        cp.stdout.pipe(process.stdout);
 
-        const g_reply = await this.zk.get(this.zk_path);
+        let g_reply = await this.zk.get(this.zk_path);
 
-        const conf = JSON.parse(g_reply.data);
+        let conf = JSON.parse(g_reply.data);
         conf.pg_pid = cp.pid;
         await this.zk.set(this.zk_path, JSON.stringify(conf), g_reply.stat.version);
+
+        spawnSync(`/usr/lib/postgresql/9.4/bin/createdb`, [
+            '-p', $config.pg_port_start,
+            '-U', this.user,
+            $config.pg_database_name
+        ]).stdout.pipe(process.stdout);
+
+        spawnSync(`/usr/lib/postgresql/9.4/bin/pg_basebackup`, [
+            '-p', $config.pg_port_start,
+            '-D', $config.pg_master_basebackup_path.replace(/~/g, process.env.HOME)
+        ]).stdout.pipe(process.stdout);
+
+        await new Promise((resolve, reject) => {
+            pool.connect(async (err, client, done) => {
+                if(err)
+                    throw new Error(err);
+
+                await client.query(`
+                    CREATE EXTENSION IF NOT EXISTS btree_gist;
+                    CREATE EXTENSION IF NOT EXISTS bdr;
+                `);
+
+                console.log(`Node (pid: ${this.pid}) attempting to create BDR group`);
+                await client.query(`
+                    SELECT bdr.bdr_group_create(
+                      local_node_name := 'node${this.zk_myid}',
+                      node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}'
+                );`).then( _r => {return _r}, async (err) => {
+
+                    const pickRandomNode = () => {
+                        const nodes_ar = Object.keys($config.nodes);
+                        const myidx = nodes_ar.indexOf(this.zk_myid);
+                        const attempt = (Math.random() * 10000) % nodes_ar.length;
+                        if(myidx == attempt)
+                            return pickRandomNode();
+                        else{
+                            return nodes_ar[attempt]; //return zookeeper myid;
+                        }
+                    };
+
+                    const otherNodeMyid = pickRandomNode();
+
+                    console.log(`Node (pid: ${this.pid}) BDR group creation failed, attempting to connect to another BDR-enabled node ${otherNodeMyid}`);
+
+                    await client.query(`
+                        SELECT bdr.bdr_group_join(
+                              local_node_name := 'node${otherNodeMyid}',
+                              node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
+                              join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${$config.nodes[otherNodeMyid]}'
+                        );
+                    `)
+                });
+
+                await client.query(`SELECT bdr.bdr_node_join_wait_for_ready();`);
+                console.log(`Node (pid: ${this.pid}) is up and ready to accept BDR traffic.`);
+            });
+        });
+
+        g_reply = await this.zk.get(this.zk_path);
+
+        conf = JSON.parse(g_reply.data);
+        conf.db_init = true;
+        await this.zk.set(this.zk_path, JSON.stringify(conf), g_reply.stat.version);
+    }
+
+    async initPostgresSlave(){
+        //watchMaster for init
+        const gc_reply = await this.zk.getChildren(`/lock/master/${this.zk_myid}`);
+        const master_lock = gc_reply.children[0];
+        const g_reply = await this.zk.get(`/lock/master/${this.zk_myid}/${master_lock}`);
+        const lock_o = JSON.parse(g_reply.data);
+
+        const master_config_path = lock_o.config_path;
+
+        console.log(`Node (pid: ${this.pid}) waiting for master (${master_config_path}) to init DB...`);
+        const watchMasterInit = async () => {
+            const mg_reply = await this.zk.get(master_config_path, true);
+            const conf_o = JSON.parse(mg_reply.data);
+
+            if(!conf_o.db_init){
+                return mg_reply.watch.then(watchMasterInit);
+            }
+        };
+
+        await watchMasterInit(); //blocks until master inits
+        console.log(`Node (pid: ${this.pid}) received signal master (${master_config_path}) has initialized DB.`);
+
+        const pg_data_dir = `${$config.pg_cluster_path}/node${(this.slave_lock_held + 1)}`;
+        await spawnSync(`cp`, ['-R', $config.pg_master_basebackup_path, pg_data_dir]);
+
+        await new Promise((resolve, reject) => {
+            let ws = fs.createWriteStream(`${pg_data_dir}/postgresql.conf`);
+            let rs = fs.createReadStream(path.join($config.app_deploy_path, 'current', 'remote_cfg', 'postgresql.slave.conf'), {autoClose: true});
+            rs.pipe(ws);
+            rs.on('end', resolve);
+            rs.on('error', reject);
+            ws.on('error', reject);
+        });
+
+        const template = Handlebars.compile(fs.readFileSync(
+            path.join($config.app_deploy_path, 'current', 'remote_cfg', 'recovery.slave.conf'),
+            'utf8'), {noEscape: true});
+
+        fs.writeFileSync(`${pg_data_dir}/recovery.conf`, template({
+            wal_archive_path: $config.pg_wal_archive_path,
+            master_port: $config.pg_port_start,
+            application_name: `slave${this.slave_lock_held}`
+        }));
+
+
+        const pg_port = $config.pg_port_start + 1 + this.slave_lock_held;
+
+        const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
+            '-p', pg_port,
+            '-D', pg_data_dir.replace(/~/g, process.env.HOME)
+        ]);
+
+        const sg_reply = await this.zk.get(this.zk_path);
+
+        const s_conf = JSON.parse(g_reply.data);
+        s_conf.db_init = true;
+        await this.zk.set(this.zk_path, JSON.stringify(s_conf), g_reply.stat.version);
+    }
+
+    async launchPostgresql() {
+        if(this.is_master){
+            return this.initPostgresMaster();
+        }else{
+            return this.initPostgresSlave();
+        }
     }
 
     async init(){

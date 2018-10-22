@@ -21,6 +21,7 @@
   ],
 
   "pg_port_start": 5598,
+  "pg_database_name": "hash_chain",
   "pg_slave_count": 4,
   "pg_cluster_path": "~/pg_bdr_cluster",
   "pg_wal_archive_path": "~/pg_bdr_cluster/wal_archive",

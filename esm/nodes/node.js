@@ -158,7 +158,7 @@ export default class Node {
             };
 
             const lockfile = await this.zk.create(path.join(_path, `${prefix}.`),
-                JSON.stringify({pid: this.pid, myid: this.zk_myid}),
+                JSON.stringify({pid: this.pid, myid: this.zk_myid, config_path: this.zk_path}),
                 (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then(_p => {return _p}, (err)=>{
                 throw new Error(err);
             });
