@@ -134,7 +134,7 @@ export default shipit => {
             
             sudo chmod -R 777 /var/run/postgresql;
             
-            initdb -D ${$config.pg_master_basebackup_path} -A trust -U add;
+            initdb -D ${$config.pg_master_basebackup_path} -A trust -U app;
             
             cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/node0
         `);
@@ -142,7 +142,7 @@ export default shipit => {
         fs.writeFileSync(`./tmp/pg_hba.conf`,
             `${Object.keys($config.nodes).map(myid => {
                 return `host all all ${$config.nodes[myid].host}/32 trust`
-            }).join("\n")}\nlocal all all trust\n`); //blow our postgres access control wide open. that's not the point of this exercise.
+            }).join("\n")}\nhost all all ::1/128 trust\nhost replication all ::1/128 trust\nlocal all all trust\n`); //blow our postgres access control wide open. that's not the point of this exercise.
 
         const ssnames = slave_indices.map(_i => {
             return `slave${_i}`
