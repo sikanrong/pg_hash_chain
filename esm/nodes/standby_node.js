@@ -116,6 +116,8 @@ class StandbyNode extends Node{
         const global_idx = ((this.is_master)? 0 : (this.slave_lock_held + 1));
         const pg_data_dir = path.join($config.pg_cluster_path, `node${global_idx}`);
 
+        console.log(`Starting postgresql service on port ${($config.pg_port_start + global_idx)}; data-dir ${pg_data_dir.replace(/~/g, process.env.HOME)}`);
+
         const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
             '-p', ($config.pg_port_start + global_idx),
             '-D', pg_data_dir.replace(/~/g, process.env.HOME)
