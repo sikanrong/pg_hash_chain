@@ -118,7 +118,7 @@ class StandbyNode extends Node{
 
         const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
             '-p', ($config.pg_port_start + global_idx),
-            '-D', pg_data_dir
+            '-D', pg_data_dir.replace(/~/g, process.env.HOME)
         ]);
 
         cp.stderr.pipe(process.stderr);
