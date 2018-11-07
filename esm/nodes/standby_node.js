@@ -46,7 +46,7 @@ class StandbyNode extends Node{
                         this.slave_lock_path = null;
 
                         this.replenishSlaves();
-                        this.initPostgresMaster();
+                        //this.initPostgresMaster();
 
                         //***THERE IS NO BREAK HERE JUST SO YOU KNOW***
                         //#iGotYourBackBro
