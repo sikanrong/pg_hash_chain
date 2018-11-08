@@ -11,18 +11,12 @@ export default shipit => {
 
     shipit.initConfig({
         default: {
-            workspace: $config.shipit_workspace,
-            deployTo: $config.app_deploy_path,
-            repositoryUrl: $config.app_deploy_from,
-            branch: $config.app_deploy_from_branch,
             ignores: ['.git', 'node_modules'],
             keepReleases: 2,
             deleteOnRollback: false,
             key: $config.ssh_key,
             shallowClone: true,
-        },
-
-        production: {
+            deployTo: $config.app_deploy_path,
             servers: Object.keys($config.nodes).map(node_id => {
                 let node = $config.nodes[node_id];
                 return {
@@ -30,6 +24,18 @@ export default shipit => {
                     user: node.user
                 }
             })
+        },
+
+        development: {
+            workspace: "./",
+            dirToCopy: ".",
+            shallowClone: false
+        },
+
+        production: {
+            workspace: $config.shipit_workspace,
+            repositoryUrl: $config.app_deploy_from,
+            branch: $config.app_deploy_from_branch
         },
     });
 
@@ -141,7 +147,7 @@ export default shipit => {
         fs.writeFileSync(`./tmp/pg_hba.conf`,
             `${Object.keys($config.nodes).map(myid => {
                 return `host all all ${$config.nodes[myid].host}/32 trust`
-            }).join("\n")}\nhost all all ::1/128 trust\nhost replication all ::1/128 trust\nlocal all all trust\nlocal replication all trust\n`);
+            }).join("\n")}\nhost all all ::1/128 trust\nhost all all 127.0.0.1/32 trust\nhost replication all ::1/128 trust\nlocal all all trust\nlocal replication all trust\n`);
 
         const ssnames = slave_indices.map(_i => {
             return `slave${_i}`
@@ -175,6 +181,15 @@ export default shipit => {
             npm run build;
         `);
     });
+
+    shipit.on('deploy', async () => {
+        if(shipit.environment == 'development'){
+            shipit.blTask("deploy:fetch", async ()=>{
+                shipit.workspace = shipit.config.workspace;
+            });
+        }
+    });
+
 
     shipit.on('deployed', async () => {
         return shipit.start([
