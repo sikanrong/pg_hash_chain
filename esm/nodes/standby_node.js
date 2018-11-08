@@ -309,7 +309,7 @@ class StandbyNode extends Node{
                 this.apoptosisMonitor();
                 return;
             }).then(async ()=>{
-                await this.launchPostgresql();
+                //await this.launchPostgresql();
             }).then(async () => {
                 await this.setInitialized();
             });
