@@ -270,12 +270,6 @@ class StandbyNode extends Node{
         await this.zk.set(this.zk_path, JSON.stringify(s_conf), g_reply.stat.version);
     }
 
-    async launchPostgresql() {
-        if(!this.is_master){
-            return this.initPostgresSlave();
-        }
-    }
-
     async init(){
         await super.init();
         await this.zk.connect().then(() => {
@@ -309,7 +303,9 @@ class StandbyNode extends Node{
                 this.apoptosisMonitor();
                 return;
             }).then(async ()=>{
-                //await this.launchPostgresql();
+                if(!this.is_master){
+                    //await this.initPostgresSlave();
+                }
             }).then(async () => {
                 await this.setInitialized();
             });
