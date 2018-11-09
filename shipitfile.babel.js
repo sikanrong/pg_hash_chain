@@ -4,6 +4,7 @@ import * as $config from "./cluster.json";
 import Handlebars from "handlebars";
 import ZooKeeper from "zk";
 import q from "q";
+import {exec, spawn, spawnSync} from 'child_process';
 import OrchestratorNode from "./esm/nodes/orchestrator_node";
 
 export default shipit => {
@@ -101,31 +102,35 @@ export default shipit => {
         );
     });
     
-    shipit.blTask('configure_postgres', async () => {
+    shipit.blTask('configure-postgres', async () => {
 
         const slave_indices = Array.from(Array($config.pg_slave_count).keys());
-        // const configureSlaves = async ()=>{
-        //     const cSlave = async _io=>{
-        //         const _i = _io + 1;
-        //         await shipit.remote(`cp -R ${$config.pg_master_basebackup_path} ${$config.pg_cluster_path}/node${_i}`);
-        //         //slave postgresql.conf doesn't really have any config-dependent data in it.
-        //         await shipit.copyToRemote('./remote_cfg/postgresql.slave.conf', `${$config.pg_cluster_path}/node${_i}/postgresql.conf`);
-        //
-        //         const template = Handlebars.compile(fs.readFileSync('./remote_cfg/recovery.slave.conf', 'utf8'), {noEscape: true});
-        //         fs.writeFileSync(`./tmp/recovery.slave${_i}.conf`, template({
-        //             wal_archive_path: $config.pg_wal_archive_path,
-        //             master_port: $config.pg_port_start,
-        //             application_name: `slave${_i}`
-        //         }));
-        //
-        //         await shipit.copyToRemote(`./tmp/recovery.slave${_i}.conf`, `${$config.pg_cluster_path}/node${_i}/recovery.conf`);
-        //         await shipit.copyToRemote(`./tmp/pg_hba.conf`, `${$config.pg_cluster_path}/node${_i}/pg_hba.conf`);
-        //     };
-        //
-        //     await Promise.all(slave_indices.map(_i => {
-        //         return cSlave(_i);
-        //     }));
-        // };
+
+        const configureSlaves = async ()=>{
+            const cSlave = async _io=>{
+                const _i = _io + 1;
+
+                await shipit.remote(`mkdir -p ${$config.pg_cluster_path}/node${_i}`);
+
+                //slave postgresql.conf doesn't really have any config-dependent data in it.
+                await shipit.copyToRemote('./remote_cfg/postgresql.slave.conf', `${$config.pg_cluster_path}/node${_i}/postgresql.conf`);
+
+                const template = Handlebars.compile(fs.readFileSync('./remote_cfg/recovery.slave.conf', 'utf8'), {noEscape: true});
+                fs.writeFileSync(`./tmp/recovery.slave${_i}.conf`, template({
+                    wal_archive_path: $config.pg_wal_archive_path,
+                    master_port: $config.pg_port_start,
+                    application_name: `slave${_i}`
+                }));
+
+
+                await shipit.copyToRemote(`./tmp/recovery.slave${_i}.conf`, `${$config.pg_cluster_path}/node${_i}/recovery.conf`);
+                await shipit.copyToRemote(`./tmp/pg_hba.conf`, `${$config.pg_cluster_path}/node${_i}/pg_hba.conf`);
+            };
+
+            await Promise.all(slave_indices.map(_i => {
+                return cSlave(_i);
+            }));
+        };
 
         await shipit.remote(`
             source ~/.profile;
@@ -162,7 +167,7 @@ export default shipit => {
         await shipit.copyToRemote("./tmp/postgresql.master.conf", `${$config.pg_cluster_path}/node0/postgresql.conf`);
         await shipit.copyToRemote("./tmp/pg_hba.conf", `${$config.pg_cluster_path}/node0/pg_hba.conf`);
 
-        //await configureSlaves();
+        await configureSlaves();
     } );
 
     shipit.task('remote_zk_configure', async () => {
@@ -203,7 +208,7 @@ export default shipit => {
                 'configure-environment',
                 'install-apt-packages',
                 'configure-zookeeper',
-                'configure_postgres'
+                'configure-postgres'
             ]);
         });
 
