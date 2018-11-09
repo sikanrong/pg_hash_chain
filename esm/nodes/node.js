@@ -19,6 +19,7 @@ export default class Node {
         this.zk_parent_path = (zk_parent_arg)? zk_parent_arg.split('=')[1] : null;
         this.zk = this.configZookeeper();
         this.pid = process.pid;
+        this.pg_pid = null;
         this.zk_myid = null;
         this.host = null;
         this.user = null;
@@ -49,6 +50,81 @@ export default class Node {
                 resolve(this.zk_myid);
             });
         });
+    }
+
+    lockSlot(){
+        let sbj = new Subject();
+
+
+        this.zk.create(`/lock/${this.zk_myid}/slot.`, new String(this.pid), (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then( _lf => {
+            const lockfile = path.basename(_lf);
+            sbj.next({
+                message: 'lockfile_created',
+                lockfile: lockfile
+            });
+
+            let attemptGetSlot = () => {
+                this.zk.getChildren(`/lock/${this.zk_myid}`, true).then(async _r => {
+                    _r.watch.then(attemptGetSlot.bind(this), _e => {
+                        throw new Error(_e);
+                    });
+
+                    const node_idx = _r.children.indexOf(lockfile);
+
+                    if(node_idx > $config.pg_slave_count){
+                        sbj.next({
+                            message: 'queued',
+                            lock_idx: node_idx
+                        });
+
+                        return;
+                    }
+
+                    let g_reply = await this.zk.get(`/lock/${this.zk_myid}`).then(_r => {return _r}, _e => {
+                        throw new Error(_e);
+                    });
+
+                    let slot_ar = JSON.parse(g_reply.data);
+                    let slot_idx = null;
+
+                    for(let i = 0; i <= $config.pg_slave_count; i++){
+                        if( slot_ar[i] === undefined ||
+                            slot_ar[i] == lockfile ||
+                            _r.children.indexOf(slot_ar[i]) == -1){
+                                slot_ar[i] = lockfile;
+                                slot_idx = i;
+                                break;
+                        }
+                    }
+
+                    await this.zk.set(`/lock/${this.zk_myid}`, JSON.stringify(slot_ar), g_reply.stat.version).then(_r => {
+                        sbj.next({
+                            message: 'granted',
+                            lock_idx: node_idx,
+                            slot_idx: slot_idx
+                        });
+
+                        return _r;
+                    }, _e => {
+                        if(_e.name == 'ZBADVERSION'){
+                            attemptGetSlot();
+                        }else{
+                            throw new Error(_e);
+                        }
+                    });
+
+                }, _e => {
+                    throw new Error(_e);
+                });
+            };
+
+            attemptGetSlot();
+
+        }, (err) => {
+            throw new Error(err);
+        });
+
+        return sbj;
     }
 
     async updateJsonZKData(path, data, maxRetries){
@@ -92,7 +168,13 @@ export default class Node {
 
     apoptosis(){ //programmed cluster death
         console.log("Node death requested. %s is shutting down...", this.zk_path);
-        process.kill(process.pid);
+        process.kill(this.pid);
+        try{
+            process.kill(this.pg_pid);
+        }catch(_e){
+            console.log(_e.toString());
+        }
+
     }
 
     apoptosisMonitor () {
@@ -140,64 +222,6 @@ export default class Node {
                 }
             })
         }
-    }
-
-    getLock(_path, prefix){
-        const outstream = new Subject();
-        prefix = prefix || 'lock';
-
-        process.nextTick(async ()=>{
-            const grantLock = ()=>{
-                console.log(`Node (pid: ${this.pid}) has been granted the LOCK at ${lockfile}`);
-                outstream.next({
-                    lockfile: lockfile,
-                    path: _path,
-                    action: 'granted',
-                    queuePos: 0
-                });
-            };
-
-            const lockfile = await this.zk.create(path.join(_path, `${prefix}.`),
-                JSON.stringify({pid: this.pid, myid: this.zk_myid, config_path: this.zk_path}),
-                (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then(_p => {return _p}, (err)=>{
-                throw new Error(err);
-            });
-
-            const gc_reply = await this.zk.getChildren(_path).then(_r => {return _r}, (err) => {
-                throw new Error(err);
-            });
-
-            const sorted_locks = gc_reply.children.sort();
-            const mylock_idx = sorted_locks.indexOf(path.basename(lockfile));
-            if(mylock_idx == 0){
-                //if my lock is first i just exit happily
-                grantLock();
-                return;
-            }
-
-            outstream.next({
-                lockfile: lockfile,
-                path: _path,
-                action: 'queued',
-                queuePos: mylock_idx
-            });
-
-            //I don't have the lock :(
-            const _prev_lock_path = path.join(_path, sorted_locks[mylock_idx - 1]);
-            await this.zk.exists(_prev_lock_path, true).then(reply => {
-                    reply.watch.then((event) => {
-                        if(event.type == 'deleted'){
-                            //This node is the new master!
-                            grantLock();
-                        }
-                    });
-                },
-                reason => {
-                    throw new Error(reason);
-                });
-        });
-
-        return outstream;
     }
 
     //Will monitor all children of a given path and resolve when they all have

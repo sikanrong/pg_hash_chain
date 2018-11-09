@@ -19,14 +19,14 @@ export default class OrchestratorNode extends Node{
             await this.zkMkdirp('/config');
 
             for(let myid in $config.nodes){
-                await this.zkMkdirp(`/lock/master/${myid}`);
-                for(let i = 0; i < $config.pg_slave_count; i++){
-                    await this.zkMkdirp(`/lock/slave/${myid}/${i}`);
-                }
-
+                await this.zkMkdirp(`/lock/${myid}`, "[]");
             }
 
-            return this.zk.create('/config/deploy.', new String(), ZooKeeper.ZOO_SEQUENCE).then(_p => {
+            return this.zk.create(
+                '/config/deploy.',
+                new String(),
+                (ZooKeeper.ZOO_SEQUENCE)
+            ).then(_p => {
                 this.zk_path = _p;
                 return this.zk.getChildren('/config').then(async (reply)=>{
 
