@@ -65,16 +65,18 @@ export default class Node {
 
             let attemptGetSlot = () => {
                 this.zk.getChildren(`/lock/${this.zk_myid}`, true).then(async _r => {
-                    _r.watch.then(attemptGetSlot.bind(this), _e => {
-                        throw new Error(_e);
-                    });
 
-                    const node_idx = _r.children.indexOf(lockfile);
+                    const node_idx = _r.children.sort().indexOf(lockfile);
 
                     if(node_idx > $config.pg_slave_count){
                         sbj.next({
                             message: 'queued',
                             lock_idx: node_idx
+                        });
+
+                        //watch for possibility to get un-queued
+                        _r.watch.then(attemptGetSlot.bind(this), _e => {
+                            throw new Error(_e);
                         });
 
                         return;
