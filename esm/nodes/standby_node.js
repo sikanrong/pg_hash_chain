@@ -36,8 +36,7 @@ class StandbyNode extends Node{
                 console.log(`Master (pid: ${this.pid}) will SPAWN a new process for ${slave_lock_path}`);
                 var _node_path = path.join($config.app_deploy_path.replace(/~/g, process.env.HOME), 'current', 'cjs', 'nodes', 'standby_node.js');
 
-                var total_order = parseInt(this.lock_path.split('.')[1]);
-                const cp = spawn('node', [`--inspect=${($config.app_debug_port_start + 100 + total_order)}`, _node_path, `zk_parent_path=${this.zk_parent_path}`]);
+                const cp = spawn('node', [`--inspect=0`, _node_path, `zk_parent_path=${this.zk_parent_path}`]);
 
                 cp.stdout.on('data', _b => {console.log(_b.toString())});
                 cp.stderr.on('data', _b => {console.log(_b.toString())});
@@ -231,6 +230,7 @@ class StandbyNode extends Node{
                             case 'queued':
                                 this.queue_pos = (_o.lock_idx - $config.pg_slave_count);
                                 console.log(`Node (PID: ${this.pid}) is in QUEUED state at position ${this.queue_pos}`);
+                                this.updateProcName(`HashChain::Queued::${this.queue_pos}`);
                                 break;
                             case 'granted':
                                 this.queue_pos = null;
@@ -240,7 +240,10 @@ class StandbyNode extends Node{
                                 if(this.slot_idx == 0){
                                     this.is_master = true;
                                     console.log(`Node (PID: ${this.pid}) has the MASTER lock`);
+                                    this.updateProcName(`HashChain::Master::${_o.slot_idx}`);
                                     this.replenishSlaves();
+                                }else{
+                                    this.updateProcName(`HashChain::Slave::${_o.slot_idx}`);
                                 }
 
                                 resolve(this.slot_idx);

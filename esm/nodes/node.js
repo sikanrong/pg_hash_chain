@@ -52,6 +52,10 @@ export default class Node {
         });
     }
 
+    updateProcName(newName){
+        process.title = [newName].concat(process.argv.slice(2)).join(' ');
+    }
+
     lockSlot(){
         let sbj = new Subject();
 
