@@ -15,11 +15,14 @@ class StandbyNode extends Node{
         this.slot_idx = null;
         this.queue_pos = null;
         this.lock_path = null;
+        this.pg_pid = null;
+        this.pg_proc = null;
 
         this.init();
     }
 
     async setInitialized(){
+        this.log("sending INIT signal");
         await this.updateJsonZKData(this.zk_path, {initialized: true});
     }
 
@@ -32,14 +35,19 @@ class StandbyNode extends Node{
 
             if( gc_reply.children.length < ($config.pg_slave_count + 2)
                 && (!lastChildCount || (gc_reply.children.length < lastChildCount))){
-                //spin up a new process
-                console.log(`Master (pid: ${this.pid}) will SPAWN a new process for ${slave_lock_path}`);
-                var _node_path = path.join($config.app_deploy_path.replace(/~/g, process.env.HOME), 'current', 'cjs', 'nodes', 'standby_node.js');
 
-                const cp = spawn('node', [`--inspect=0`, _node_path, `zk_parent_path=${this.zk_parent_path}`]);
+                const howMany = ($config.pg_slave_count + 2) - gc_reply.children.length;
 
-                cp.stdout.on('data', _b => {console.log(_b.toString())});
-                cp.stderr.on('data', _b => {console.log(_b.toString())});
+                for(var i = 0; i < howMany; i++){
+                    //spin up a new process
+                    this.log(`MASTER will SPAWN a new process for ${slave_lock_path}`);
+                    var _node_path = path.join($config.app_deploy_path.replace(/~/g, process.env.HOME), 'current', 'cjs', 'nodes', 'standby_node.js');
+
+                    const cp = spawn('node', [`--inspect=0`, _node_path, `zk_parent_path=${this.zk_parent_path}`]);
+
+                    cp.stdout.on('data', _d => {console.log(_d.toString())});
+                    cp.stderr.on('data', _d => {console.log(_d.toString())});
+                }
             }
 
             lastChildCount = gc_reply.children.length;
@@ -49,164 +57,250 @@ class StandbyNode extends Node{
         watchSlaveLocks();
     }
 
-    // async initPostgresMaster(){
-    //     const pg_data_dir = path.join($config.pg_cluster_path, 'node0');
-    //
-    //     console.log(`Node (pid: ${this.pid}) PostgreSQL MASTER START with {port: ${($config.pg_port_start)}, data: ${pg_data_dir.replace(/~/g, process.env.HOME)}}`);
-    //
-    //     const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
-    //         '-p', $config.pg_port_start,
-    //         '-D', pg_data_dir.replace(/~/g, process.env.HOME)
-    //     ]);
-    //
-    //     spawnSync(`createdb`, [
-    //         '-p', $config.pg_port_start,
-    //         '-U', this.user, $config.pg_database_name
-    //     ]);
-    //
-    //     const pool = new pg.Pool({
-    //         host: 'localhost',
-    //         user: this.user,
-    //         post: $config.pg_port_start,
-    //         database: $config.pg_database_name
-    //     });
-    //
-    //     cp.stderr.pipe(process.stderr);
-    //     cp.stdout.pipe(process.stdout);
-    //
-    //     let g_reply = await this.zk.get(this.zk_path);
-    //
-    //     let conf = JSON.parse(g_reply.data);
-    //     conf.pg_pid = cp.pid;
-    //     await this.zk.set(this.zk_path, JSON.stringify(conf), g_reply.stat.version);
-    //
-    //     spawnSync(`/usr/lib/postgresql/9.4/bin/createdb`, [
-    //         '-p', $config.pg_port_start,
-    //         '-U', this.user,
-    //         $config.pg_database_name
-    //     ]);
-    //
-    //     spawnSync(`/usr/lib/postgresql/9.4/bin/pg_basebackup`, [
-    //         '-p', $config.pg_port_start,
-    //         '-D', $config.pg_master_basebackup_path.replace(/~/g, process.env.HOME)
-    //     ]);
-    //
-    //     await new Promise((resolve, reject) => {
-    //         pool.connect(async (err, client, done) => {
-    //             if(err)
-    //                 throw new Error(err);
-    //
-    //             await client.query(`
-    //                 CREATE EXTENSION IF NOT EXISTS btree_gist;
-    //                 CREATE EXTENSION IF NOT EXISTS bdr;
-    //             `);
-    //
-    //             console.log(`Node (pid: ${this.pid}) attempting to create BDR group`);
-    //             await client.query(`
-    //                 SELECT bdr.bdr_group_create(
-    //                   local_node_name := 'node${this.zk_myid}',
-    //                   node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}'
-    //             );`).then( _r => {return _r}, async (err) => {
-    //
-    //                 const pickRandomNode = () => {
-    //                     const nodes_ar = Object.keys($config.nodes);
-    //                     const myidx = nodes_ar.indexOf(this.zk_myid);
-    //                     const attempt = (Math.random() * 10000) % nodes_ar.length;
-    //                     if(myidx == attempt)
-    //                         return pickRandomNode();
-    //                     else{
-    //                         return nodes_ar[attempt]; //return zookeeper myid;
-    //                     }
-    //                 };
-    //
-    //                 const otherNodeMyid = pickRandomNode();
-    //
-    //                 console.log(`Node (pid: ${this.pid}) BDR group creation failed, attempting to connect to another BDR-enabled node ${otherNodeMyid}`);
-    //
-    //                 await client.query(`
-    //                     SELECT bdr.bdr_group_join(
-    //                           local_node_name := 'node${otherNodeMyid}',
-    //                           node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
-    //                           join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${$config.nodes[otherNodeMyid]}'
-    //                     );
-    //                 `)
-    //             });
-    //
-    //             await client.query(`SELECT bdr.bdr_node_join_wait_for_ready();`);
-    //             console.log(`Node (pid: ${this.pid}) is up and ready to accept BDR traffic.`);
-    //         });
-    //     });
-    //
-    //     g_reply = await this.zk.get(this.zk_path);
-    //
-    //     conf = JSON.parse(g_reply.data);
-    //     conf.db_init = true;
-    //     await this.zk.set(this.zk_path, JSON.stringify(conf), g_reply.stat.version);
-    // }
+    async startPostgres(pg_data_dir, port){
+        const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
+            '-p', port,
+            '-D', pg_data_dir.replace(/~/g, process.env.HOME)
+        ]);
 
-    // async initPostgresSlave(){
-    //     //watchMaster for init
-    //
-    //
-    //     console.log(`Node (pid: ${this.pid}) waiting for master to init DB...`);
-    //     const watchMasterInit = async () => {
-    //         const gc_reply = await this.zk.getChildren(`/lock/master/${this.zk_myid}`);
-    //         const master_lock = gc_reply.children[0];
-    //         const g_reply = await this.zk.get(`/lock/master/${this.zk_myid}/${master_lock}`);
-    //         const lock_o = JSON.parse(g_reply.data);
-    //
-    //         const master_config_path = lock_o.config_path;
-    //
-    //         const mg_reply = await this.zk.get(master_config_path, true);
-    //         const conf_o = JSON.parse(mg_reply.data);
-    //
-    //         if(!conf_o.db_init){
-    //             return mg_reply.watch.then(watchMasterInit);
-    //         }
-    //     };
-    //
-    //     await watchMasterInit(); //blocks until master inits
-    //     console.log(`Node (pid: ${this.pid}) received signal master (${master_config_path}) has initialized DB.`);
-    //
-    //     const pg_data_dir = `${$config.pg_cluster_path}/node${(this.slot_idx + 1)}`;
-    //     await spawnSync(`cp`, ['-R', $config.pg_master_basebackup_path, pg_data_dir]);
-    //
-    //     await new Promise((resolve, reject) => {
-    //         let ws = fs.createWriteStream(`${pg_data_dir}/postgresql.conf`);
-    //         let rs = fs.createReadStream(path.join($config.app_deploy_path, 'current', 'remote_cfg', 'postgresql.slave.conf'), {autoClose: true});
-    //         rs.pipe(ws);
-    //         rs.on('end', resolve);
-    //         rs.on('error', reject);
-    //         ws.on('error', reject);
-    //     });
-    //
-    //     const template = Handlebars.compile(fs.readFileSync(
-    //         path.join($config.app_deploy_path, 'current', 'remote_cfg', 'recovery.slave.conf'),
-    //         'utf8'), {noEscape: true});
-    //
-    //     fs.writeFileSync(`${pg_data_dir}/recovery.conf`, template({
-    //         wal_archive_path: $config.pg_wal_archive_path,
-    //         master_port: $config.pg_port_start,
-    //         application_name: `slave${this.slot_idx}`
-    //     }));
-    //
-    //
-    //     const pg_port = $config.pg_port_start + 1 + this.slot_idx;
-    //
-    //     const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
-    //         '-p', pg_port,
-    //         '-D', pg_data_dir.replace(/~/g, process.env.HOME)
-    //     ]);
-    //
-    //     const sg_reply = await this.zk.get(this.zk_path);
-    //
-    //     const s_conf = JSON.parse(g_reply.data);
-    //     s_conf.db_init = true;
-    //     await this.zk.set(this.zk_path, JSON.stringify(s_conf), g_reply.stat.version);
-    // }
+        this.pg_pid = cp.pid;
+
+        cp.stdout.on('data', this.log.bind(this));
+        cp.stderr.on('data', this.log.bind(this));
+
+        await this.updateJsonZKData(this.zk_path, {pg_pid: this.pg_pid});
+        this.pg_proc = cp;
+        return cp;
+    }
+
+    async initPostgresMaster(){
+        const pg_data_dir = path.join($config.pg_cluster_path, 'node0');
+
+        await this.startPostgres(pg_data_dir, $config.pg_port_start);
+
+        spawnSync('rm', ['-rf', $config.pg_master_basebackup_path.replace(/~/g, process.env.HOME)]);
+        spawnSync('mkdir', ['-p', $config.pg_master_basebackup_path.replace(/~/g, process.env.HOME)]);
+
+        let attemptBaseBackup = async (retries) => {
+            const _out = spawnSync(`/usr/lib/postgresql/9.4/bin/pg_basebackup`, [
+                '-p', $config.pg_port_start,
+                '-D', $config.pg_master_basebackup_path.replace(/~/g, process.env.HOME)
+            ]);
+
+            if(_out.status == 0){
+                this.log(_out.stdout.toString());
+                this.log(_out.stderr.toString());
+            }else if(retries <= 0){
+                const _e = new Error(_out.stderr.toString());
+                this.logError(_e.toString());
+                throw(_e);
+            }else{
+                this.log(`Node (PID: ${this.pid}) MASTER retrying pg_basebackup. Retries remaining: ${retries}`);
+                const _e = new Error(_out.stderr.toString());
+
+                await new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        resolve(attemptBaseBackup(retries-1));
+                    }, 1000);
+
+                });
+            }
+        };
+
+        await attemptBaseBackup(5);
+
+        await this.updateJsonZKData(this.zk_path, {pg_basebackup_done: true});
+
+
+        await new Promise((resolve, reject) => {
+            new pg.Pool({
+                host: '127.0.0.1',
+                user: this.user,
+                port: $config.pg_port_start,
+                database: 'postgres'
+            }).connect((err, client, done) => {
+                if(err){
+                    return reject(err);
+                }
+
+                client.query(`
+                    SELECT pg_terminate_backend(pid)
+                    FROM pg_stat_activity
+                    WHERE datname = '${$config.pg_database_name}' OR datname = '${this.user}';
+                `).then(async () => {
+                    await client.query(`DROP DATABASE IF EXISTS ${this.user};`).catch(reject);
+                    await client.query(`DROP DATABASE IF EXISTS ${$config.pg_database_name};`).catch(reject);
+                    await client.query(`CREATE DATABASE ${this.user}`).catch(reject);
+                    await client.query(`CREATE DATABASE ${$config.pg_database_name}`).catch(reject);
+                    done();
+                }).then(resolve).catch(reject);
+            });
+        }).catch(_e => {
+            throw new Error(_e);
+        });
+
+        this.log(`MASTER create database ${$config.pg_database_name}`);
+
+        const pool = new pg.Pool({
+            host: '127.0.0.1',
+            user: this.user,
+            port: $config.pg_port_start,
+            database: $config.pg_database_name
+        });
+
+        await new Promise((resolve, reject) => {
+            pool.connect((err, client, done) => {
+                if(err){
+                    return reject(err);
+                }
+
+                new Promise(async(_res, _rej) => {
+                    this.log(`MASTER attempting to create BDR extensions`);
+
+                    await client.query(`
+                        CREATE EXTENSION IF NOT EXISTS btree_gist;
+                        CREATE EXTENSION IF NOT EXISTS bdr;
+                    `).catch(_e => {
+                        throw new Error(_e);
+                    });
+
+                    this.log(`MASTER attempting to create BDR group`);
+
+                    await client.query(`
+                        SELECT bdr.bdr_group_create(
+                          local_node_name := 'node${this.zk_myid}',
+                          node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}'
+                    );`).catch(async (_bdr_err) => {
+
+                        this.log(`MASTER BDR ERROR ${_bdr_err}`);
+
+                        const pickRandomNode = () => {
+                            const nodes_ar = Object.keys($config.nodes);
+                            const myidx = nodes_ar.indexOf(this.zk_myid);
+                            const attempt = (Math.random() * 10000) % nodes_ar.length;
+                            if(myidx == attempt)
+                                return pickRandomNode();
+                            else{
+                                return nodes_ar[attempt]; //return zookeeper myid;
+                            }
+                        };
+
+                        const otherNodeMyid = pickRandomNode();
+
+                        this.log(`MASTER BDR group creation failed, attempting to connect to another BDR-enabled node ${otherNodeMyid}`);
+
+                        await client.query(`
+                        SELECT bdr.bdr_group_join(
+                              local_node_name := 'node${otherNodeMyid}',
+                              node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
+                              join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${$config.nodes[otherNodeMyid]}'
+                        );
+                    `).catch(_e => {
+                            throw new Error(_e);
+                        });
+                    });
+
+                    this.log(`MASTER waiting for BDR ready signal`);
+
+                    await client.query(`SELECT bdr.bdr_node_join_wait_for_ready();`).then(_res, _rej);
+
+                    done();
+                }).then(resolve, reject);
+            });
+        }).catch(_e => {
+            throw new Error(_e);
+        });
+
+        this.log(`MASTER is up and ready to accept BDR traffic.`);
+
+        await this.updateJsonZKData(this.zk_path, {pg_init: true});
+    }
+
+    async initPostgresSlave(){
+        //watchMaster for init
+
+        this.log(`SLAVE waiting for MASTER to basebackup...`);
+        const watchBaseBackup = async () => {
+            await new Promise(async (resolve, reject) => {
+                let doWatch = async () => {
+                    this.log(`SLAVE watching for MASTER basebackup...`);
+                    const gc_reply = await this.zk.get(`/lock/${this.zk_myid}`, true).then(_r => {return _r}, _e => {
+                        this.log(_e);
+                        doWatch();
+                    });;
+
+                    const master_lock = JSON.parse(gc_reply.data)[0];
+                    if(!master_lock){
+                        return doWatch();
+                    }
+
+                    const g_reply = await this.zk.get(`/lock/${this.zk_myid}/${master_lock}`, true).then(_r => {return _r}, _e => {
+                        this.log(_e);
+                        doWatch();
+                    });
+
+                    const lock_o = JSON.parse(g_reply.data);
+
+                    const master_config_path = lock_o.config_path;
+
+                    const mg_reply = await this.zk.get(master_config_path, true);
+                    const conf_o = JSON.parse(mg_reply.data);
+                    this.log(`SLAVE reporting MASTER (${master_config_path}) data: ${mg_reply.data.toString()}`);
+
+                    if(!conf_o.pg_basebackup_done){
+                        mg_reply.watch.then(doWatch);
+                        g_reply.watch.then(doWatch);
+                        gc_reply.watch.then(doWatch);
+                    }else{
+                        this.log(`received signal master (${master_config_path}) has executed basebackup`);
+                        resolve();
+                    }
+                };
+
+                doWatch();
+            });
+        };
+
+        await watchBaseBackup(); //blocks until master inits
+
+        const pg_data_dir = `${$config.pg_cluster_path}/node${(this.slot_idx)}`;
+
+        //copy the basebackup but preserve the existing configs.
+        const _out = spawnSync(`cp`, ['-nR', path.join($config.pg_master_basebackup_path, '*'), pg_data_dir], {shell: true});
+        if(_out.status == 0){
+            this.log(_out.stdout.toString());
+            this.log(_out.stderr.toString());
+        }else{
+            this.logError(_out.stderr.toString());
+            throw new Error(_out.stderr.toString())
+        }
+
+        const pg_port = $config.pg_port_start + 1 + this.slot_idx;
+
+        await this.startPostgres(pg_data_dir, pg_port);
+
+        await this.updateJsonZKData(this.zk_path, {pg_init: true});
+    }
 
     async init(){
         await super.init();
+
+        function exitHandler(options, exitCode) {
+            if(this.pg_proc){
+                this.pg_proc.kill();
+            }
+        }
+
+        //do something when app is closing
+        process.on('exit', exitHandler.bind(this));
+
+        //catches ctrl+c event
+        process.on('SIGINT', exitHandler.bind(this));
+
+        // catches "kill pid" (for example: nodemon restart)
+        process.on('SIGUSR1', exitHandler.bind(this));
+        process.on('SIGUSR2', exitHandler.bind(this));
+
         await this.zk.connect().then(() => {
             return this.zk.create(
                 path.join(this.zk_parent_path, 'subnode.'),
@@ -229,17 +323,17 @@ class StandbyNode extends Node{
                                 break;
                             case 'queued':
                                 this.queue_pos = (_o.lock_idx - $config.pg_slave_count);
-                                console.log(`Node (PID: ${this.pid}) is in QUEUED state at position ${this.queue_pos}`);
+                                this.log(`is in QUEUED state at position ${this.queue_pos}`);
                                 this.updateProcName(`HashChain::Queued::${this.queue_pos}`);
                                 break;
                             case 'granted':
                                 this.queue_pos = null;
-                                console.log(`Node (PID: ${this.pid}) has been GRANTED a lock for slot ${_o.slot_idx}`);
+                                this.log(`has been GRANTED a lock for slot ${_o.slot_idx}`);
                                 this.slot_idx = _o.slot_idx;
 
                                 if(this.slot_idx == 0){
                                     this.is_master = true;
-                                    console.log(`Node (PID: ${this.pid}) has the MASTER lock`);
+                                    this.log(`has the MASTER lock`);
                                     this.updateProcName(`HashChain::Master::${_o.slot_idx}`);
                                     this.replenishSlaves();
                                 }else{
@@ -257,8 +351,10 @@ class StandbyNode extends Node{
                 this.apoptosisMonitor();
                 return;
             }).then(async ()=>{
-                if(!this.is_master){
-                    //await this.initPostgresSlave();
+                if(this.is_master){
+                    await this.initPostgresMaster();
+                }else{
+                    await this.initPostgresSlave();
                 }
             }).then(async () => {
                 await this.setInitialized();

@@ -122,9 +122,10 @@ export default shipit => {
                     application_name: `slave${_i}`
                 }));
 
-
                 await shipit.copyToRemote(`./tmp/recovery.slave${_i}.conf`, `${$config.pg_cluster_path}/node${_i}/recovery.conf`);
                 await shipit.copyToRemote(`./tmp/pg_hba.conf`, `${$config.pg_cluster_path}/node${_i}/pg_hba.conf`);
+
+                await shipit.remote(`chmod -R 700 ${$config.pg_cluster_path}/node${_i}`);
             };
 
             await Promise.all(slave_indices.map(_i => {
@@ -152,7 +153,7 @@ export default shipit => {
         fs.writeFileSync(`./tmp/pg_hba.conf`,
             `${Object.keys($config.nodes).map(myid => {
                 return `host all all ${$config.nodes[myid].host}/32 trust`
-            }).join("\n")}\nhost all all ::1/128 trust\nhost all all 127.0.0.1/32 trust\nhost replication all ::1/128 trust\nlocal all all trust\nlocal replication all trust\n`);
+            }).join("\n")}\nhost all all ::1/128 trust\nhost all all 127.0.0.1/32 trust\nhost all all localhost trust\nhost replication all ::1/128 trust\nlocal all all trust\nlocal replication all trust\n`);
 
         const ssnames = slave_indices.map(_i => {
             return `slave${_i}`

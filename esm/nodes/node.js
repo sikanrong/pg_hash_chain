@@ -25,6 +25,14 @@ export default class Node {
         this.user = null;
     }
 
+    log(_msg){
+        console.log(`Node (PID: ${this.pid}) ${_msg.toString()}`);
+    }
+
+    logError(_msg){
+        console.error(`Node (PID: ${this.pid}) ${_msg.toString()}`);
+    }
+
     async init(){
         await this.setZkMyid();
         this.host = $config.nodes[this.zk_myid].host;
@@ -60,7 +68,9 @@ export default class Node {
         let sbj = new Subject();
 
 
-        this.zk.create(`/lock/${this.zk_myid}/slot.`, new String(this.pid), (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then( _lf => {
+        this.zk.create(`/lock/${this.zk_myid}/slot.`, JSON.stringify({
+            config_path: this.zk_path
+        }), (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)).then( _lf => {
             const lockfile = path.basename(_lf);
             sbj.next({
                 message: 'lockfile_created',
@@ -151,7 +161,7 @@ export default class Node {
                     return _r;
                 }, (err) => {
                     if(err.name == 'ZBADVERSION'){
-                        console.log(`${err.toString()}: ${err.path}`);
+                        this.log(`RETRY ${err.toString()}: ${err.path}`);
                     }else{
                         throw new Error(err);
                     }
@@ -161,7 +171,7 @@ export default class Node {
                     if(++tries > maxRetries){
                         throw new Error(`Update ${path}: maxRetries (${maxRetries}) exceeded`);
                     }else{
-                        return await doUpdate(path, data);
+                        return doUpdate(path, data);
                     }
                 }else{
                     return reply.stat;
@@ -173,12 +183,12 @@ export default class Node {
     }
 
     apoptosis(){ //programmed cluster death
-        console.log("Node death requested. %s is shutting down...", this.zk_path);
+        this.log(`death requested. ${this.zk_path} is shutting down...`);
         process.kill(this.pid);
         try{
             process.kill(this.pg_pid);
         }catch(_e){
-            console.log(_e.toString());
+            this.logError(_e);
         }
 
     }
