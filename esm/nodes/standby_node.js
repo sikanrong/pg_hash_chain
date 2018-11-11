@@ -59,6 +59,18 @@ class StandbyNode extends Node{
     }
 
     async startPostgres(pg_data_dir, port){
+
+        const _out = spawnSync(`/usr/lib/postgresql/9.4/bin/pg_ctl`, [
+            '-p', port,
+            '-D', pg_data_dir.replace(/~/g, process.env.HOME),
+            'stop'
+        ]);
+
+        console.log(_out.stdout.toString());
+        if(_out.status != 0){
+            console.log(_out.stderr.toString());
+        }
+
         const cp = spawn(`/usr/lib/postgresql/9.4/bin/postgres`, [
             '-p', port,
             '-D', pg_data_dir.replace(/~/g, process.env.HOME)
