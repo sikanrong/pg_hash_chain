@@ -222,7 +222,9 @@ class StandbyNode extends Node{
                             throw new Error(_e);
                         });
 
-                        if(gc_reply.children.indexOf(path.basename(this.master_bdr_lock)) == 0){
+                        const sorted_children = gc_reply.children.sort();
+
+                        if(sorted_children.indexOf(path.basename(this.master_bdr_lock)) == 0){
                             this.log(`MASTER (${this.host}) BDR GROUP CREATE`);
                             await client.query(`
                                 SELECT bdr.bdr_group_create(
@@ -234,25 +236,33 @@ class StandbyNode extends Node{
                                 throw new Error(_e);
                             });
                         }else{
-                            const g_reply = await this.zk.get(path.join(bdr_lock_path, gc_reply.children[0])).catch(_e => {
-                                throw new Error(_e);
-                            });
+                            const tryBdrConnect = async (childIdx) => {
+                                const g_reply = await this.zk.get(path.join(bdr_lock_path, sorted_children[childIdx])).catch(_e => {
+                                    throw new Error(_e);
+                                });
 
-                            const otherNodeMyid = g_reply.data.toString();
-                            const otherNodeHost = $config.nodes[otherNodeMyid].host;
-                            this.log(`MASTER BDR GROUP JOIN other node at ${otherNodeHost}`);
+                                const otherNodeMyid = g_reply.data.toString();
+                                const otherNodeHost = $config.nodes[otherNodeMyid].host;
+                                this.log(`MASTER BDR GROUP JOIN other node at ${otherNodeHost}`);
 
-                            await client.query(`
-                                SELECT bdr.bdr_group_join(
-                                      local_node_name := 'node${this.zk_myid}',
-                                      node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
-                                      join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${otherNodeHost}'
-                                );
-                            `).then(() => {
-                                this.log(`MASTER BDR GROUP JOIN success. Joined BDR group via node at ${otherNodeHost}`);
-                            }).catch(_e => {
-                                throw new Error(_e);
-                            });
+                                await client.query(`
+                                    SELECT bdr.bdr_group_join(
+                                          local_node_name := 'node${this.zk_myid}',
+                                          node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
+                                          join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${otherNodeHost}'
+                                    );
+                                `).then(() => {
+                                    this.log(`MASTER BDR GROUP JOIN success. Joined BDR group via node at ${otherNodeHost}`);
+                                }).catch(async _e => {
+                                    if(sorted_children[childIdx + 1]){
+                                        return await tryBdrConnect(childIdx + 1);
+                                    }else{
+                                        throw new Error(_e);
+                                    }
+                                });
+                            };
+
+                            await tryBdrConnect(0);
                         }
                     };
 
