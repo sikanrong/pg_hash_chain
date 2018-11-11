@@ -152,8 +152,18 @@ export default shipit => {
 
         fs.writeFileSync(`./tmp/pg_hba.conf`,
             `${Object.keys($config.nodes).map(myid => {
-                return `host all all ${$config.nodes[myid].host}/32 trust`
-            }).join("\n")}\nhost all all ::1/128 trust\nhost all all 127.0.0.1/32 trust\nhost all all localhost trust\nhost replication all ::1/128 trust\nlocal all all trust\nlocal replication all trust\n`);
+                return `
+                    host all all ${$config.nodes[myid].host}/32 trust
+                    host replication all ${$config.nodes[myid].host}/32 trust
+                `;
+            }).join("\n")}
+                host all all ::1/128 trust
+                host all all 127.0.0.1/32 trust
+                host all all localhost trust
+                host replication all ::1/128 trust
+                local all all trust
+                local replication all trust
+            `);
 
         const ssnames = slave_indices.map(_i => {
             return `slave${_i}`
