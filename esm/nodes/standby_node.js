@@ -244,7 +244,7 @@ class StandbyNode extends Node{
 
                             await client.query(`
                                 SELECT bdr.bdr_group_join(
-                                      local_node_name := 'node${otherNodeMyid}',
+                                      local_node_name := 'node${this.zk_myid}',
                                       node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
                                       join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${otherNodeHost}'
                                 );
