@@ -17,6 +17,7 @@ class StandbyNode extends Node{
         this.lock_path = null;
         this.pg_pid = null;
         this.pg_proc = null;
+        this.pg_cleanup = null;
 
         this.init();
     }
@@ -119,27 +120,31 @@ class StandbyNode extends Node{
                 port: $config.pg_port_start,
                 database: 'postgres'
             }).connect((err, client, done) => {
+                this.pg_cleanup = done;
+
                 if(err){
                     return reject(err);
                 }
 
-                client.query(`
-                    SELECT pg_terminate_backend(pid)
-                    FROM pg_stat_activity
-                    WHERE datname = '${$config.pg_database_name}' OR datname = '${this.user}';
-                `).then(async () => {
-                    await client.query(`DROP DATABASE IF EXISTS ${this.user};`).catch(reject);
-                    await client.query(`DROP DATABASE IF EXISTS ${$config.pg_database_name};`).catch(reject);
-                    await client.query(`CREATE DATABASE ${this.user}`).catch(reject);
-                    await client.query(`CREATE DATABASE ${$config.pg_database_name}`).catch(reject);
+                this.log(`MASTER attempt create database ${$config.pg_database_name}`);
+                Promise.all([
+                    client.query(`CREATE DATABASE ${this.user} TEMPLATE template0`),
+                    client.query(`CREATE DATABASE ${$config.pg_database_name} TEMPLATE template0`)
+                ]).then(()=>{
                     done();
-                }).then(resolve).catch(reject);
+                    this.log(`MASTER create database ${$config.pg_database_name} successful`);
+                    resolve();
+                }, (_e) => {
+                    //Don't reject if database is not created
+                    this.log(`(caught) ${_e}`);
+                    done();
+                    resolve();
+                });
+
             });
         }).catch(_e => {
             throw new Error(_e);
         });
-
-        this.log(`MASTER create database ${$config.pg_database_name}`);
 
         const pool = new pg.Pool({
             host: '127.0.0.1',
@@ -150,61 +155,118 @@ class StandbyNode extends Node{
 
         await new Promise((resolve, reject) => {
             pool.connect((err, client, done) => {
+                this.pg_cleanup = done;
+
                 if(err){
                     return reject(err);
                 }
 
-                new Promise(async(_res, _rej) => {
+                new Promise(async (_res, _rej) => {
                     this.log(`MASTER attempting to create BDR extensions`);
 
-                    await client.query(`
-                        CREATE EXTENSION IF NOT EXISTS btree_gist;
-                        CREATE EXTENSION IF NOT EXISTS bdr;
-                    `).catch(_e => {
+                    await new Promise(async (__res, __rej) => { //these param names are getting out of hand...
+                        let tryCreateExt = async () => {
+                            client.query(`
+                                DO $$
+                                BEGIN
+                                    IF EXISTS (
+                                        SELECT schema_name
+                                          FROM information_schema.schemata
+                                          WHERE schema_name = 'bdr'
+                                    )
+                                    THEN
+                                      EXECUTE 'SELECT bdr.remove_bdr_from_local_node(TRUE)';
+                                      DROP EXTENSION bdr;
+                                    END IF;
+                                END
+                                $$
+                            `).then(() => {
+                                return client.query(`
+                                    CREATE EXTENSION IF NOT EXISTS btree_gist;
+                                    CREATE EXTENSION bdr;
+                                `)
+                            }).then(() => {
+                                this.log(`MASTER create BDR extensions success`);
+                                __res();
+                            }).catch(_e => {
+                                if(_e.code == 55000){
+                                    this.log(`(caught) ${_e}`);
+                                    this.log(`MASTER retry create BDR extensions`);
+                                    setTimeout(tryCreateExt, 500);
+                                }else{
+                                    __rej(_e);
+                                }
+                            });
+                        };
+
+                        await tryCreateExt();
+                    }).catch(_e => {
                         throw new Error(_e);
                     });
 
-                    this.log(`MASTER attempting to create BDR group`);
+                    let deploy_id = path.basename(this.zk_parent_path);
+                    let bdr_lock_path = `/lock/bdr/${deploy_id}`;
 
-                    await client.query(`
-                        SELECT bdr.bdr_group_create(
-                          local_node_name := 'node${this.zk_myid}',
-                          node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}'
-                    );`).catch(async (_bdr_err) => {
+                    //master-only lock to figure out which node initially creates the BDR group and who joins it (and which
+                    //nodes are available to join.)
+                    await this.zkMkdirp(bdr_lock_path);
 
-                        this.log(`MASTER BDR ERROR ${_bdr_err}`);
-
-                        const pickRandomNode = () => {
-                            const nodes_ar = Object.keys($config.nodes);
-                            const myidx = nodes_ar.indexOf(this.zk_myid);
-                            const attempt = (Math.random() * 10000) % nodes_ar.length;
-                            if(myidx == attempt)
-                                return pickRandomNode();
-                            else{
-                                return nodes_ar[attempt]; //return zookeeper myid;
-                            }
-                        };
-
-                        const otherNodeMyid = pickRandomNode();
-
-                        this.log(`MASTER BDR group creation failed, attempting to connect to another BDR-enabled node ${otherNodeMyid}`);
-
-                        await client.query(`
-                        SELECT bdr.bdr_group_join(
-                              local_node_name := 'node${otherNodeMyid}',
-                              node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
-                              join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${$config.nodes[otherNodeMyid]}'
+                    let bdrConsensus = async () => {
+                        this.master_bdr_lock = await this.zk.create(
+                            `${bdr_lock_path}/bdr.`,
+                            this.zk_myid.toString(),
+                            (ZooKeeper.ZOO_SEQUENCE | ZooKeeper.ZOO_EPHEMERAL)
                         );
-                    `).catch(_e => {
+
+                        let gc_reply = await this.zk.getChildren(bdr_lock_path).catch(_e => {
                             throw new Error(_e);
                         });
+
+                        if(gc_reply.children.indexOf(path.basename(this.master_bdr_lock)) == 0){
+                            this.log(`MASTER (${this.host}) BDR GROUP CREATE`);
+                            await client.query(`
+                                SELECT bdr.bdr_group_create(
+                                  local_node_name := 'node${this.zk_myid}',
+                                  node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}'
+                            );`).then(() => {
+                                this.log("MASTER BDR GROUP CREATE success");
+                            }).catch(_e => {
+                                throw new Error(_e);
+                            });
+                        }else{
+                            const g_reply = await this.zk.get(path.join(bdr_lock_path, gc_reply.children[0])).catch(_e => {
+                                throw new Error(_e);
+                            });
+
+                            const otherNodeMyid = g_reply.data.toString();
+                            const otherNodeHost = $config.nodes[otherNodeMyid].host;
+                            this.log(`MASTER BDR GROUP JOIN other node at ${otherNodeHost}`);
+
+                            await client.query(`
+                                SELECT bdr.bdr_group_join(
+                                      local_node_name := 'node${otherNodeMyid}',
+                                      node_external_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${this.host}',
+                                      join_using_dsn := 'port=5598 dbname=${$config.pg_database_name} host=${otherNodeHost}'
+                                );
+                            `).then(() => {
+                                this.log(`MASTER BDR GROUP JOIN success. Joined BDR group via node at ${otherNodeHost}`);
+                            }).catch(_e => {
+                                throw new Error(_e);
+                            });
+                        }
+                    };
+
+                    await bdrConsensus().catch(_e => {
+                        throw new Error(_e);
                     });
 
                     this.log(`MASTER waiting for BDR ready signal`);
 
-                    await client.query(`SELECT bdr.bdr_node_join_wait_for_ready();`).then(_res, _rej);
+                    await client.query(`SELECT bdr.bdr_node_join_wait_for_ready();`).then(() => {
+                        done();
+                        _res();
+                    }, _rej);
 
-                    done();
                 }).then(resolve, reject);
             });
         }).catch(_e => {
@@ -286,6 +348,10 @@ class StandbyNode extends Node{
         await super.init();
 
         function exitHandler(options, exitCode) {
+            if(this.pg_cleanup){
+                //should terminate any postgres connections on exit.
+                this.pg_cleanup();
+            }
             if(this.pg_proc){
                 this.pg_proc.kill();
             }

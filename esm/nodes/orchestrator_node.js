@@ -24,7 +24,7 @@ export default class OrchestratorNode extends Node{
 
             return this.zk.create(
                 '/config/deploy.',
-                new String(),
+                "[]",
                 (ZooKeeper.ZOO_SEQUENCE)
             ).then(_p => {
                 this.zk_path = _p;
