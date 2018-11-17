@@ -5,18 +5,12 @@ import ZooKeeper from "zk";
 import * as $config from "../../cluster";
 import * as path from "path";
 import q from "q";
-import {exec} from "child_process";
 import {Subject, ReplaySubject} from "rxjs";
 
 export default class Node {
 
     constructor(){
         this.zk_path = null;
-        //parse out the parent path from the ARGV
-        const zk_parent_arg = process.argv.filter(arg => {
-            return (arg.indexOf('zk_parent_path') > -1)
-        })[0]
-        this.zk_parent_path = (zk_parent_arg)? zk_parent_arg.split('=')[1] : null;
         this.zk = this.configZookeeper();
         this.pid = process.pid;
         this.pg_pid = null;
@@ -34,7 +28,7 @@ export default class Node {
     }
 
     async init(){
-        await this.setZkMyid();
+        this.zk_myid = process.env.ZK_MYID;
         this.host = $config.nodes[this.zk_myid].host;
         this.user = $config.nodes[this.zk_myid].user;
 
@@ -49,15 +43,6 @@ export default class Node {
             });
 
         }, 1000);
-    }
-
-    async setZkMyid(){
-        return new Promise((resolve, reject) => {
-            exec(`cat ${$config.zk_config_path}/myid`, (err, stdout) => {
-                this.zk_myid = stdout.trim();
-                resolve(this.zk_myid);
-            });
-        });
     }
 
     updateProcName(newName){
@@ -213,7 +198,7 @@ export default class Node {
 
     configZookeeper () {
         return new ZooKeeper({
-            connect: `${$config.nodes[Object.keys($config.nodes)[0]].host}:${$config.zk_client_port}`,
+            connect: `127.0.0.1:${$config.zk_client_port}`,
             timeout: $config.zk_connection_timeout,
             debug_level: ZooKeeper.ZOO_LOG_LEVEL_WARN,
             host_order_deterministic: false

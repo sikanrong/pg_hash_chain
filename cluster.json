@@ -1,16 +1,13 @@
 {
   "nodes": {
     "1": {
-      "host": "192.168.1.101",
-      "user": "app"
+      "host": "192.168.1.101"
     },
     "2": {
-      "host": "192.168.1.102",
-      "user": "app"
+      "host": "192.168.1.102"
     },
     "3": {
-      "host": "192.168.1.103",
-      "user": "app"
+      "host": "192.168.1.103"
     }
   },
 
@@ -40,28 +37,5 @@
   "app_debug_port_start": 9222,
   "app_deploy_path": "~/hash_chain",
   "app_deploy_from": "file:///var/www/pg_hash_chain",
-  "app_deploy_from_branch": "pg_configuration",
-
-  "apt_repositories": [
-    "deb https://apt.2ndquadrant.com/ bionic-2ndquadrant main"
-  ],
-  "apt_keys": {
-    "2ndquadrant": "https://apt.2ndquadrant.com/site/keys/9904CD4BD6BAF0C3.asc"
-  },
-  "apt_preinstall_dependencies": [
-    "curl",
-    "ca-certificates",
-    "apt-transport-https"
-  ],
-  "apt_dependencies": [
-    "postgresql-bdr-9.4-bdr-plugin",
-    "postgresql-bdr-server-dev-9.4",
-    "vim",
-    "npm",
-    "nodejs",
-    "haproxy",
-    "zookeeper",
-    "zookeeper-bin",
-    "zookeeperd"
-  ]
+  "app_deploy_from_branch": "pg_configuration"
 }

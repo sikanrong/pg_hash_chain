@@ -42,7 +42,7 @@ class StandbyNode extends Node{
                 for(var i = 0; i < howMany; i++){
                     //spin up a new process
                     this.log(`MASTER will SPAWN a new process for ${slave_lock_path}`);
-                    var _node_path = path.join($config.app_deploy_path.replace(/~/g, process.env.HOME), 'current', 'cjs', 'nodes', 'standby_node.js');
+                    var _node_path = path.join($config.app_deploy_path.replace(/~/g, process.env.HOME), 'cjs', 'nodes', 'standby_node.js');
 
                     const cp = spawn('node', [`--inspect=0`, _node_path, `zk_parent_path=${this.zk_parent_path}`]);
 
@@ -389,7 +389,18 @@ class StandbyNode extends Node{
         process.on('SIGUSR1', exitHandler.bind(this));
         process.on('SIGUSR2', exitHandler.bind(this));
 
-        await this.zk.connect().then(() => {
+        await this.zk.connect().then(async () => {
+
+            const gc_reply = await this.zk.getChildren('/config').catch(_e => {
+                throw new Error(_e);
+            });
+
+            if(gc_reply.children.length == 0){
+                throw new Error("ERR: No deployment node");
+            }
+
+            this.zk_parent_path = `/config/${gc_reply.children[gc_reply.children.length - 1]}`;
+
             return this.zk.create(
                 path.join(this.zk_parent_path, 'subnode.'),
                 JSON.stringify({
@@ -447,6 +458,8 @@ class StandbyNode extends Node{
             }).then(async () => {
                 await this.setInitialized();
             });
+        }, _e => {
+            throw new Error(_e);
         });
     }
 }

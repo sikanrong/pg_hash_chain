@@ -6,7 +6,6 @@
   "scripts": {
     "build": "babel esm --source-maps inline --out-dir cjs",
     "prepublish": "npm run build",
-    "install": "npm run build",
     "test": "ava --tap test.js"
   },
   "repository": {
