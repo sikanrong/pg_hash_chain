@@ -18,3 +18,12 @@ apt-get update
 
 RUN apt-get install -y postgresql-bdr-9.4 postgresql-bdr-contrib-9.4 postgresql-bdr-9.4-bdr-plugin postgresql-bdr-server-dev-9.4
 
+RUN adduser --disabled-password app
+
+#Make app user sudoer with no password required
+RUN echo "app ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers
+RUN mkdir -p /home/app
+USER app
+
+VOLUME ["/home/app/bdr/config", "/home/app/bdr/master-basebackup", "/home/app/bdr/wal-archive"]
+ENTRYPOINT bash

@@ -1,0 +1,41 @@
+---
+apiVersion: v1
+kind: StatefulSet
+metadata:
+  name: pghc-pg-bdr-wal-master
+  namespace: pghc
+spec:
+  selector:
+    matchLabels:
+      app: pg-bdr-wal-master
+  serviceName: pghc-pg-bdr-wal-master
+  replicas: 3
+  template:
+    metadata:
+      app: pg-bdr-wal-master
+      namespace: pghc
+    spec:
+      containers:
+      - name: pghc-postgres
+        image: pghc-postgres
+        volumeMount:
+        - mountPath: /home/app/bdr/wal-archive
+          name: wal-archive
+        - mountPath: /home/app/bdr/master-basebackup
+          name: master-basebackup
+        - mountPath: /home/app/bdr/config
+          name: pg-master-config
+      volumes:
+      - name: pg-master-config
+        configMap:
+          optional: false
+          name: pg-conf
+      - name: wal-archive
+        hostPath:
+          path: /tmp/pghc/wal-archive
+          type: DirectoryOrCreate
+      - name: master-basebackup
+        hostPath:
+          path: /tmp/pghc/master-basebackup
+          type: DirectoryOrCreate
+
