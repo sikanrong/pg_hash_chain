@@ -1,0 +1,17 @@
+---
+  apiVersion: v1
+  kind: Deployment
+  metadata:
+    name: pghc-node
+  spec:
+    replicas: 3
+    template:
+      metadata:
+        labels:
+          app: pghc-node
+      spec:
+        containers:
+          - name: pghc_master
+            image: pghc_node
+            ports:
+              - containerPort: 5598

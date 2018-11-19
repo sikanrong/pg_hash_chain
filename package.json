@@ -24,15 +24,14 @@
     "babel-preset-env": "^1.5.1",
     "babel-register": "^6.24.1",
     "zk": "^1.1.1",
-    "shipit-cli": "^4.1.2",
-    "shipit-deploy": "^4.1.2",
     "pg": "^7.5.0",
     "express": "^4.16.4",
     "handlebars": "^4.0.12",
     "q": "^1.5.1",
     "ssh-exec": "^2.0.0",
     "rxjs": "^6.3.3",
-    "pg-native": "^3.0.0"
+    "pg-native": "^3.0.0",
+    "gulp": "^3.9.1"
   },
   "author": "Alexander Pilafian",
   "license": "GPL-3.0",
