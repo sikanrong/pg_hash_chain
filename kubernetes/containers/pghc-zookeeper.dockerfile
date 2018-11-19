@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM pghc-base
 
 RUN apt-get update
 RUN apt-get install -y zookeeper zookeeper-bin zookeeperd
