@@ -32,8 +32,8 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
     //Copy Postgres conf to Kubernetes ConfigMap
     const pgHbaConf = `${bdr_node_seq.map(node_idx => {
       return `
-        host all all pghc-postgres-repl-${node_idx}.pghc-postgres-repl.pghc.svc.cluster.local trust
-        host replication all pghc-postgres-repl-${node_idx}.pghc-postgres-repl.pghc.svc.cluster.local trust
+        host all all pghc-postgres-repl-${node_idx}.pghc-postgres.pghc.svc.cluster.local trust
+        host replication all pghc-postgres-repl-${node_idx}.pghc-postgres.pghc.svc.cluster.local trust
       `;
     }).join("\n")}
       host all all 127.0.0.1/32 trust
@@ -47,7 +47,7 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
 
       local all all trust
       local replication all trust
-    `.replace(/\s\s*$/gm, "");
+    `.replace(/^\s+/gm, '').trim();
 
     const conf_payload = {
         kind: "ConfigMap",
