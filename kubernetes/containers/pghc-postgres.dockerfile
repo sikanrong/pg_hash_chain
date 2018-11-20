@@ -9,9 +9,12 @@ USER app
 ENV HOME="/home/app"
 ENV BDR_HOME="${HOME}/bdr"
 ENV PGDATA="${BDR_HOME}/data"
+ENV PGPORT=5432
 RUN mkdir -p $PGDATA
 RUN initdb $PGDATA
 
 VOLUME ["/home/app/bdr/config", "/home/app/bdr/master-basebackup", "/home/app/bdr/wal-archive"]
+
+EXPOSE $PGPORT
 
 ENTRYPOINT ["postgres"]
