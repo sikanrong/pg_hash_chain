@@ -17,7 +17,8 @@ RUN adduser --disabled-password app
 #Make app user sudoer with no password required
 RUN echo "app ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers
 RUN mkdir -p /home/app
-
+RUN chown -R app:app /home/app
+RUN chmod -R 755 /home/app
 #configure time zone
 RUN export DEBIAN_FRONTEND=noninteractive && \
 apt-get install -y tzdata && \
