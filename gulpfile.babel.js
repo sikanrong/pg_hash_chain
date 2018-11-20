@@ -81,8 +81,9 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
     conf_payload.data["postgresql.master.conf"] = pgMasterConf;
 
     //Write PostgreSQL WAL-replica (slave) node configuration files.
+    const nodesPerCenter = parseInt( pgReplSet.spec.replicas / NUM_DATA_CENTERS );
     slave_indices.forEach(_i => {
-        let _midx = parseInt( _i / parseInt( pgReplSet.spec.replicas / NUM_DATA_CENTERS ) );
+        let _midx = parseInt( _i / nodesPerCenter ) * nodesPerCenter;
         const template = Handlebars.compile(fs.readFileSync('./remote_cfg/recovery.slave.conf', 'utf8'), {noEscape: true});
         const pgSlaveConf = template({
             wal_archive_path: _conf.wal_archive_path,
