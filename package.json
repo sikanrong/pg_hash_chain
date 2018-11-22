@@ -41,6 +41,10 @@
   "bugs": {
     "url": "https://github.com/sikanrong/pg_hash_chain/issues"
   },
+  "pghc": {
+    "num_bdr_groups": 2,
+    "wal_archive_path": "/home/app/bdr/wal-archive"
+  },
   "homepage": "https://github.com/sikanrong/pg_hash_chain#readme",
   "babel": {
     "presets": [
