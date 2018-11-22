@@ -2,6 +2,7 @@
 
 #first need to determine whether I'm master or slave.
 export MY_HOST=$(hostname)
+export HOST_SUFFIX="pghc-postgres.pghc.svc.cluster.local"
 export POD_IDX="$(echo $MY_HOST | cut -c${#MY_HOST}-${#MY_HOST})"
 
 chmod -R 700 $PGDATA;
@@ -32,6 +33,33 @@ then export IS_MASTER=true && echo "${MY_HOST} is a WAL/BDR master node";
     pg_ctl -w start;
 
     createdb -U app -p $PGPORT hash_chain -T template0;
+
+    psql -d hash_chain -U app -c "$(cat <<- SQL
+            CREATE EXTENSION btree_gist;
+            CREATE EXTENSION bdr;
+SQL
+)";
+
+    if [ $POD_IDX -eq 0 ];
+        then psql -d hash_chain -U app -c "$(cat <<- SQL
+            SELECT bdr.bdr_group_create(
+              local_node_name := '${MY_HOST}',
+              node_external_dsn := 'port=5432 dbname=hash_chain host=${MY_HOST}.${HOST_SUFFIX}'
+            );
+SQL
+)";
+
+        else psql -d hash_chain -U app -c "$(cat <<- SQL
+        SELECT bdr.bdr_group_join(
+          local_node_name := '${MY_HOST}',
+          node_external_dsn := 'port=5432 dbname=hash_chain host=${MY_HOST}.${HOST_SUFFIX}',
+          join_using_dsn := 'port=5432 dbname=hash_chain host=pghc-postgres-repl-0.pghc-postgres.pghc.svc.cluster.local'
+        );
+SQL
+)";
+    fi;
+
+    psql -d hash_chain -U app -c "SELECT bdr.bdr_node_join_wait_for_ready();";
 
 else export IS_MASTER=false && echo "${MY_HOST} is a WAL standby replica";
 
