@@ -14,19 +14,38 @@ gulp.task("k8s-connect", async () => {
     await client.loadSpec();
 });
 
+const loadConfig = async (endpoint, spec_path) => {
+    const _spec = yaml.safeLoad(fs.readFileSync(spec_path));
+    let _res = await createOrUpdate(endpoint, _spec);
+
+    console.log(_res);
+}
+
 const createOrUpdate = async (endpoint, payload) => {
-    return await endpoint.post(payload).catch(async _e => {
+    return await endpoint.post({body: payload}).catch(async _e => {
         if(_e.message.indexOf('already exists') >= 0){
-            return await endpoint(payload.body.metadata.name).patch(payload).catch(_e => {
+            return await endpoint(payload.metadata.name).patch({body: payload}).catch(_e => {
                 throw new Error (_e);
             });
+        }else{
+            throw new Error(_e);
         }
     })
 };
 
+const forceRecreate = async (endpoint, payload) => {
+    await endpoint(payload.metadata.name).delete().catch(_e => {
+        if(_e.code != 404){
+            throw new Error(_e);
+        }
+    });
+    const _res = await endpoint.post({body: payload}).catch(_e => {throw new Error(_e)});
+    console.log(_res);
+};
+
 gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
 
-    const conf_payload = {
+    let conf_payload = {
         kind: "ConfigMap",
         metadata: {
             name: "pg-conf"
@@ -36,7 +55,8 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
 
     //Get number of replicas from the configuration
     const pgReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'controllers', 'postgres-repl.statefulset.spec.k8s.yaml')));
-    const bdr_node_seq = Array.apply(null, {length: pgReplSet.spec.replicas}).map(Number.call, Number);
+    const zkReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'controllers', 'zookeeper.statefulset.spec.k8s.yaml')));
+    const zk_node_set = Array.apply(null, {length: zkReplSet.spec.replicas}).map(Number.call, Number);
 
     //Copy Postgres conf to Kubernetes ConfigMap
     const pgHbaConf = `
@@ -98,33 +118,38 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
         }
     });
 
-    // //Write Zookeeper configuration files
-    // const conf = fs.readFileSync("remote_cfg/zoo.cfg", "utf8");
-    // template = Handlebars.compile(conf, {noEscape: true});
-    //
-    // const zk_servers = Object.keys($config.nodes).map(myid => {
-    //     return `server.${myid}\=${$config.nodes[myid].host}:${$config.zk_discovery_port}:${$config.zk_election_port}`
-    // }).join("\n");
-    //
-    // fs.writeFileSync("./tmp/zoo.cfg", template({
-    //     zk_servers: zk_servers,
-    //     zk_datadir: $config.zk_datadir,
-    //     zk_client_port: $config.zk_client_port
-    // }));
+    await forceRecreate(client.api.v1.namespaces('pghc').configmaps, conf_payload);
 
-    await client.api.v1.namespaces('pghc').configmaps('pg-conf').delete().catch(_e => {throw new Error(_e)});
-    let _res = await createOrUpdate(client.api.v1.namespaces('pghc').configmaps, {body: conf_payload});
-    console.log(_res);
+    //Write Zookeeper configuration files
+    const conf = fs.readFileSync("remote_cfg/zoo.cfg", "utf8");
+    template = Handlebars.compile(conf, {noEscape: true});
+
+    const zkConf = template({
+        zk_servers: zk_node_set.map(_i => {
+            return `server.${(_i + 1).toString()}=pghc-zookeeper-${_i}.pghc-zookeeper-svc.pghc.svc.cluster.local:2888:3888`;
+        }).join("\n")
+    });
+
+    conf_payload = {
+        kind: "ConfigMap",
+        metadata: {
+            name: "zk-conf"
+        },
+        data: {
+            "zoo.cfg": zkConf
+        }
+    };
+
+    zk_node_set.forEach(_i => {
+        conf_payload.data[`zk_myid.${_i}`] = (_i + 1).toString();
+    });
+
+    await forceRecreate(client.api.v1.namespaces('pghc').configmaps, conf_payload);
 });
 
 gulp.task("k8s-deploy", ["k8s-connect", "k8s-configmaps"], async () => {
-    const pgReplSetSpec = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'controllers', 'postgres-repl.statefulset.spec.k8s.yaml')));
-    let _res = await createOrUpdate(client.apis.apps.v1.namespaces('pghc').statefulsets, {body: pgReplSetSpec});
-
-    console.log(_res);
-
-    const pgSrvSpec = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'services', 'pghc-postgres.service.spec.k8s.yaml')));
-    _res = await createOrUpdate(client.api.v1.namespaces('pghc').services, {body: pgSrvSpec});
-
-    console.log(_res);
+    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'postgres-repl.statefulset.spec.k8s.yaml'));
+    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'zookeeper.statefulset.spec.k8s.yaml'));
+    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-postgres.service.spec.k8s.yaml'));
+    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-zookeeper.service.spec.k8s.yaml'));
 });

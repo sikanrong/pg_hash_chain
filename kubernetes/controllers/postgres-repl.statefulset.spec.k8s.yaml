@@ -36,8 +36,3 @@ spec:
         hostPath:
           path: /tmp/pghc/wal-archive
           type: DirectoryOrCreate
-      - name: master-basebackup
-        hostPath:
-          path: /tmp/pghc/master-basebackup
-          type: DirectoryOrCreate
-

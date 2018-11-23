@@ -1,0 +1,32 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pghc-zookeeper
+  namespace: pghc
+spec:
+  selector:
+    matchLabels:
+      app: pghc-zookeeper
+  serviceName: pghc-zookeeper-svc
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: pghc-zookeeper
+      namespace: pghc
+    spec:
+      containers:
+      - name: pghc-zookeeper
+        image: pghc-zookeeper
+        imagePullPolicy: Never
+        volumeMounts:
+        - mountPath: /home/app/zk_conf
+          name: zk-conf
+      volumes:
+      - name: zk-conf
+        configMap:
+          optional: false
+          name: zk-conf
+
+

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pghc-zookeeper-svc
+  namespace: pghc
+  labels:
+    app: pghc-zookeeper
+spec:
+  selector:
+    app: pghc-zookeeper
+  clusterIP: None
+  ports:
+  - port: 2888
+    name: zookeeper-leader
+  - port: 3888
+    name: zookeeper-peers
+  - port: 2181
+    name: zookeeper-client
