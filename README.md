@@ -1,3 +1,1 @@
-This branch/tag represents my initial work on this repo that was mostly about eductionally figuring out how to use Apache ZooKeeper to achieve consensus between shared-nothing nodes to configure a postgres multi-master cluster with WAL replication. It works, but it's about a thousand times cleaner using the Docker/Kubernetes approach to building and deploying the cluster. 
-
-Saved this work for posterity; it taught me much about Apache ZooKeeper design patterns and usage.
+TODO: Write a really fucking badass comprehensive README
