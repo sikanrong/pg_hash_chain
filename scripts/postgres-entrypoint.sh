@@ -2,7 +2,7 @@
 
 #first need to determine whether I'm master or slave.
 export MY_HOST=$(hostname)
-export HOST_SUFFIX="pghc-postgres.pghc.svc.cluster.local"
+export HOST_SUFFIX="pghc-postgres-dns.pghc.svc.cluster.local"
 export POD_IDX="$(echo $MY_HOST | cut -c${#MY_HOST}-${#MY_HOST})"
 
 chmod -R 700 $PGDATA;
@@ -53,7 +53,7 @@ SQL
         SELECT bdr.bdr_group_join(
           local_node_name := '${MY_HOST}',
           node_external_dsn := 'port=5432 dbname=hash_chain host=${MY_HOST}.${HOST_SUFFIX}',
-          join_using_dsn := 'port=5432 dbname=hash_chain host=pghc-postgres-repl-0.pghc-postgres.pghc.svc.cluster.local'
+          join_using_dsn := 'port=5432 dbname=hash_chain host=pghc-postgres-repl-0.${HOST_SUFFIX}'
         );
 SQL
 )";
@@ -65,7 +65,7 @@ else export IS_MASTER=false && echo "${MY_HOST} is a WAL standby replica";
 
     export MASTER_IDX="$(cat $BDR_HOME/config/slave$POD_IDX.master)";
 
-    pg_basebackup -h pghc-postgres-repl-$MASTER_IDX.pghc-postgres.pghc.svc.cluster.local -U app -p $PGPORT -D $PGDATA;
+    pg_basebackup -h pghc-postgres-repl-$MASTER_IDX.$HOST_SUFFIX -U app -p $PGPORT -D $PGDATA;
 
     cp $BDR_HOME/config/pg_hba.conf $PGDATA/pg_hba.conf;
     cp $BDR_HOME/config/postgresql.slave$POD_IDX.conf $PGDATA/postgresql.conf;

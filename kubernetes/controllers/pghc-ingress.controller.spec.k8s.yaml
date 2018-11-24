@@ -12,5 +12,5 @@ spec:
       paths:
       - path: /api
         backend:
-          serviceName: pghc-frontend
+          serviceName: pghc-backend-loadbalancer
           servicePort: 8080

@@ -12,6 +12,12 @@ let client;
 gulp.task("k8s-connect", async () => {
     client = new K8s.Client({ config: K8s.config.fromKubeconfig(), version: '1.10' });
     await client.loadSpec();
+
+    await client.api.v1.namespaces.post({ body: yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'pghc.namespace.spec.k8s.yaml')))}).catch(_e => {
+        if(_e.code != 409){
+            throw new Error(_e);
+        }
+    });
 });
 
 const loadConfig = async (endpoint, spec_path, _method) => {
@@ -56,8 +62,8 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
     };
 
     //Get number of replicas from the configuration
-    const pgReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'controllers', 'postgres-repl.statefulset.spec.k8s.yaml')));
-    const zkReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'controllers', 'zookeeper.statefulset.spec.k8s.yaml')));
+    const pgReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'controllers', 'pghc-postgres-repl.statefulset.spec.k8s.yaml')));
+    const zkReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, 'kubernetes', 'controllers', 'pghc-zookeeper.statefulset.spec.k8s.yaml')));
     const zk_node_set = Array.apply(null, {length: zkReplSet.spec.replicas}).map(Number.call, Number);
 
     //Copy Postgres conf to Kubernetes ConfigMap
@@ -110,7 +116,7 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
             template = Handlebars.compile(fs.readFileSync('./remote_cfg/recovery.slave.conf', 'utf8'), {noEscape: true});
             const pgSlaveRecovery = template({
                 wal_archive_path: wal_path,
-                master_host: `${pgReplSet.metadata.name}-${_master_idx}.pghc-postgres.pghc.svc.cluster.local`,
+                master_host: `${pgReplSet.metadata.name}-${_master_idx}.pghc-postgres-dns.pghc.svc.cluster.local`,
                 application_name: `${pgReplSet.metadata.name}-${_i}`
             });
 
@@ -150,28 +156,29 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
 });
 
 const deployPostgresNodes = async () => {
-    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'postgres-repl.statefulset.spec.k8s.yaml'));
-    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-postgres.service.spec.k8s.yaml'));
+    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'pghc-postgres-repl.statefulset.spec.k8s.yaml'));
+    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-postgres.dns.spec.k8s.yaml'));
 };
 
 const deployZookeeper = async() => {
-    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'zookeeper.statefulset.spec.k8s.yaml'));
+    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'pghc-zookeeper.statefulset.spec.k8s.yaml'));
     await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-zookeeper.service.spec.k8s.yaml'));
 };
 
 const deployFrontend = async() => {
-    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'frontend.statefulset.spec.k8s.yaml'));
-    await loadConfig(client.api.extensions.v1beta1.namespaces('pghc').ingresses, path.join(__dirname, 'kubernetes', 'controllers', 'ingress.controller.spec.k8s.yaml'));
-    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-frontend.loadbalancer.spec.k8s.yaml'));
-    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-frontend.service.spec.k8s.yaml'));
+    await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'pghc-backend.statefulset.spec.k8s.yaml'));
+    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-backend.loadbalancer.spec.k8s.yaml'));
+    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-backend.dns.spec.k8s.yaml'));
+
+    await loadConfig(client.api.extensions.v1beta1.namespaces('pghc').ingresses, path.join(__dirname, 'kubernetes', 'controllers', 'pghc-ingress.controller.spec.k8s.yaml'));
 };
 
-gulp.task("k8s-deploy-frontend", ["k8s-connect", "k8s-configmaps"], deployFrontend.bind(this));
+gulp.task("k8s-deploy-backend", ["k8s-connect", "k8s-configmaps"], deployFrontend.bind(this));
 gulp.task("k8s-deploy-postgres", ["k8s-connect", "k8s-configmaps"], deployPostgresNodes.bind(this));
 gulp.task("k8s-deploy-zookeeper", ["k8s-connect", "k8s-configmaps"], async () => deployZookeeper.bind(this));
 
 gulp.task("k8s-deploy", ["k8s-connect", "k8s-configmaps"], async () => {
-    deployPostgresNodes();
-    deployZookeeper();
-    deployFrontend();
+    await deployPostgresNodes();
+    await deployZookeeper();
+    await deployFrontend();
 });
