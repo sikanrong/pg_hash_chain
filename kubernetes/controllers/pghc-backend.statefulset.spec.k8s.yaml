@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: pghc-backend
-  serviceName: pghc-postgres-dns
+  serviceName: pghc-backend-dns
   replicas: 6
   template:
     metadata:
