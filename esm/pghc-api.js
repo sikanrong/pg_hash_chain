@@ -9,6 +9,6 @@ const version = $package.version;
 app.listen(port, () => {
     console.log(`HashChain API (v${$package.version}) LISTENING ${port}`);
     app.get('/ping', (req, res, next) => {
-        res.json("['pong']");
+        res.send("pong");
     });
 });

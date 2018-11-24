@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-ctrl
+  namespace: pghc
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: minikube.ingress
+    http:
+      paths:
+      - path: /api
+        backend:
+          serviceName: pghc-frontend
+          servicePort: 8080

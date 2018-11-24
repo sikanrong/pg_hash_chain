@@ -1,16 +1,22 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: pghc-frontend
+  name: pghc-frontend-loadbalancer
   namespace: pghc
   labels:
     app: pghc-frontend
 spec:
   selector:
     app: pghc-frontend
-  clusterIP: None
+  clusterIP: 10.111.111.111
+  type: LoadBalancer
   ports:
   - port: 8080
     name: nodejs
   - port: 9228
     name: nodejs-debug
+status:
+  loadBalancer:
+    ingress:
+      - hostname: minikube.ingress

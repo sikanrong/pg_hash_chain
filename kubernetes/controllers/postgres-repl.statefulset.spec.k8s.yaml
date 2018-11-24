@@ -23,8 +23,6 @@ spec:
         volumeMounts:
         - mountPath: /home/app/bdr/wal-archive
           name: wal-archive
-        - mountPath: /home/app/bdr/master-basebackup
-          name: master-basebackup
         - mountPath: /home/app/bdr/config
           name: pg-master-config
       volumes:
