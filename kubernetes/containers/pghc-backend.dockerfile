@@ -7,6 +7,8 @@ WORKDIR /home/app/hash_chain
 COPY package.json package.json
 RUN npm install --production
 COPY esm esm
+COPY kubernetes kubernetes
+COPY scripts scripts
 RUN npm run build
 
 EXPOSE 9228 8080

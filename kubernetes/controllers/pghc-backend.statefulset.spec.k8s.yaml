@@ -9,7 +9,7 @@ spec:
     matchLabels:
       app: pghc-backend
   serviceName: pghc-backend-dns
-  replicas: 6
+  replicas: 4
   template:
     metadata:
       labels:
