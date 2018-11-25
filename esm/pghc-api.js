@@ -32,7 +32,6 @@ class PghcAPI {
 
         this.rconn = null;
         this.wconn = null;
-        this.lockpath = null;
     }
 
     //init zookeeper connection
@@ -143,6 +142,11 @@ class PghcAPI {
 
             this.app.post('/chain', async (req, res) => {
 
+                //queue for the lock
+                const lockpath = await this.zk.create('/chain/lock.', new String(), ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE ).catch(_e => {
+                    throw new Error(_e);
+                });
+
                 const dbWrite = async (sqId) => {
 
                     console.log(`Writing new link with sequence number ${sqId}`);
@@ -157,11 +161,11 @@ class PghcAPI {
                     });
 
                     const tryDel = async () => {
-                        const g_reply = await this.zk.get(this.lockpath).catch(_e => {
+                        const g_reply = await this.zk.get(lockpath).catch(_e => {
                             throw new Error(_e);
                         });
 
-                        return this.zk.delete(this.lockpath, g_reply.stat.version).catch(_e => {
+                        return this.zk.delete(lockpath, g_reply.stat.version).catch(_e => {
                             if(_e.name == 'ZBADVERSION'){
                                 return tryDel();
                             }else{
@@ -174,18 +178,13 @@ class PghcAPI {
                     return resultSet[2].rows[0];
                 };
 
-                //queue for the lock
-                this.lockpath = await this.zk.create('/chain/lock.', new String(), ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE ).catch(_e => {
-                    throw new Error(_e);
-                });
-
                 const checkLockStatus = async () => {
                     return this.zk.getChildren('/chain').then(async _r => {
                         const sortedChildren = _r.children.sort();
-                        const lidx = sortedChildren.indexOf(path.basename(this.lockpath));
+                        const lidx = sortedChildren.indexOf(path.basename(lockpath));
                         if(lidx == 0){
                             //get lock sequence number
-                            const sqId = parseInt(path.basename(this.lockpath).split('.')[1]);
+                            const sqId = parseInt(path.basename(lockpath).split('.')[1]);
                             const newLink = await dbWrite(sqId);
                             res.json(newLink);
                             return newLink;

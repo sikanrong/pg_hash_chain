@@ -2,17 +2,41 @@ import test from "ava";
 import {fork} from "child_process";
 import path from "path";
 
+let child_ps = [];
+
+const killChildren = () => {
+    child_ps.forEach(_c => {
+        try{
+            process.kill(_c.pid);
+        }catch(_e){
+            console.log(`Could not kill child process with PID ${_c.pid}`);
+        }
+    });
+
+    child_ps = [];
+};
+
 test('ten second high-load run with verification', async t => {
-    const creator = fork(path.join(__dirname, 'workers', 'creator.js'));
+    child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));
+    child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));
+
+    child_ps.forEach(_c => {
+        _c.on('message', _m => {
+            if(_m.message == 'link_added'){
+                t.pass();
+            }
+        });
+    });
 
     return new Promise((_res, _rej) => {
-        creator.on('message', _m => {
-            console.log(_m);
-        });
+       setTimeout(() => {
+           killChildren();
+           _res();
+       }, 10000);
     });
 
 });
 
 process.on('exit', () => {
-    process.kill(creator.pid);
+    killChildren();
 });

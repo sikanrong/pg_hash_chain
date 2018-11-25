@@ -9,7 +9,7 @@ spec:
     matchLabels:
       app: postgres-repl
   serviceName: pghc-postgres-dns
-  replicas: 6
+  replicas: 4
   template:
     metadata:
       labels:
