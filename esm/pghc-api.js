@@ -5,80 +5,199 @@ import * as path from "path";
 import {Pool} from "pg";
 import {spawnSync} from "child_process";
 import yaml from "js-yaml";
+import ZooKeeper from "zk";
 
-const app = express();
-const port = 8080;
+class PghcAPI {
+    constructor() {
+        this.app = express();
+        this.port = 8080;
 
-const version = $package.version;
+        this.version = $package.version;
 
-//get hostname from OS
-const hostname = process.env.HOSTNAME;
+        //get hostname from OS
+        this.hostname = process.env.HOSTNAME;
 
-//get pod idx
-const hostname_components = hostname.split('-');
-const backend_pod_idx = parseInt(hostname_components[hostname_components.length - 1]);
+        //get pod idx
+        const hostname_components = this.hostname.split('-');
+        this.pod_idx = parseInt(hostname_components[hostname_components.length - 1]);
 
-const pgReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', 'kubernetes', 'controllers', 'pghc-postgres-repl.statefulset.spec.k8s.yaml')));
-const bkReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', 'kubernetes', 'controllers', 'pghc-backend.statefulset.spec.k8s.yaml')));
+        const pgReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', 'kubernetes', 'controllers', 'pghc-postgres-repl.statefulset.spec.k8s.yaml')));
+        const bkReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', 'kubernetes', 'controllers', 'pghc-backend.statefulset.spec.k8s.yaml')));
 
-//Find the correct read and write database to connect to via simple math.
-const bkClusterIdx = parseInt(backend_pod_idx / parseInt(bkReplSet.spec.replicas / $package.pghc.num_bdr_groups));
-const bkClusterInnerIdx = (backend_pod_idx % parseInt(bkReplSet.spec.replicas / $package.pghc.num_bdr_groups));
-const pgMasterIdx = bkClusterIdx * parseInt( pgReplSet.spec.replicas / $package.pghc.num_bdr_groups );
-const pgSlaveIdx = pgMasterIdx + 1 + bkClusterInnerIdx;
+        //Find the correct read and write database to connect to via simple math.
+        this.bkClusterIdx = parseInt(this.pod_idx / parseInt(bkReplSet.spec.replicas / $package.pghc.num_bdr_groups));
+        this.bkClusterInnerIdx = (this.pod_idx % parseInt(bkReplSet.spec.replicas / $package.pghc.num_bdr_groups));
+        this.pgMasterIdx = this.bkClusterIdx * parseInt( pgReplSet.spec.replicas / $package.pghc.num_bdr_groups );
+        this.pgSlaveIdx = this.pgMasterIdx + 1 + this.bkClusterInnerIdx;
 
-let rconn, wconn;
+        this.rconn = null;
+        this.wconn = null;
+        this.lockpath = null;
+    }
 
-const initDatabase = async () => {
+    //init zookeeper connection
+    async initZookeeper () {
+        console.log("Connecting to ZooKeeper...");
 
-    console.log(`Connecting to read DB ${pgSlaveIdx}; write DB ${pgMasterIdx}`);
+        this.zk = new ZooKeeper({
+            connect: `pghc-zookeeper-${this.bkClusterIdx}.pghc-zookeeper-dns.pghc.svc.cluster.local:2181`,
+            timeout: 20000,
+        });
 
-    const getConnection = async (connHost) => {
-        return new Promise(async (_res, _rej) => {
-            const pool = new Pool({
-                host: connHost,
-                user: 'app',
-                port: 5432,
-                database: 'hash_chain'
+        await this.zk.connect();
+
+        //heartbeat
+        setInterval(async () => {
+            await this.zk.get('/chain').catch((err) => {
+                throw new Error(err);
             });
+        }, 1000);
 
-            pool.connect((err, client, done) => {
-                if(err){
-                    return _rej(err);
-                }else{
-                    _res({client, done});
-                }
+        return this.zk;
+    }
+
+    async initDatabase() {
+
+        console.log(`Connecting to read DB ${this.pgSlaveIdx}; write DB ${this.pgMasterIdx}`);
+
+        const getConnection = async (connHost) => {
+            return new Promise(async (_res, _rej) => {
+                const pool = new Pool({
+                    host: connHost,
+                    user: 'app',
+                    port: 5432,
+                    database: 'hash_chain'
+                });
+
+                pool.connect((err, client, done) => {
+                    if(err){
+                        return _rej(err);
+                    }else{
+                        _res({client, done});
+                    }
+                });
             });
+        };
+
+        this.rconn = await getConnection(`pghc-postgres-repl-${this.pgSlaveIdx}.pghc-postgres-dns.pghc.svc.cluster.local`).catch(_e => {
+            throw new Error(_e);
+        });
+
+        this.wconn = await getConnection(`pghc-postgres-repl-${this.pgMasterIdx}.pghc-postgres-dns.pghc.svc.cluster.local`).catch(_e => {
+            throw new Error(_e);
         });
     };
 
-    rconn = await getConnection(`pghc-postgres-repl-${pgSlaveIdx}.pghc-postgres-dns.pghc.svc.cluster.local`).catch(_e => {
-        throw new Error(_e);
-    });
+    async zkMkdirp(_path, data) {
+        const path_ar = _path.substr(1).split('/');
+        const path_constructed_ar = [];
+        while(path_ar.length > 0){
+            path_constructed_ar.push(path_ar.shift());
+            let insert_data = undefined;
+            if(path_ar.length == 0){
+                insert_data = data; //insert data on the last iteration
+            }
+            await this.zk.create(`/${path.join.apply(this, path_constructed_ar)}`, insert_data).then(_p => {return _p}, (err) => {
+                if(err.name != 'ZNODEEXISTS'){
+                    throw new Error(err);
+                }
+            })
+        }
+    }
 
-    wconn = await getConnection(`pghc-postgres-repl-${pgMasterIdx}.pghc-postgres-dns.pghc.svc.cluster.local`).catch(_e => {
-        throw new Error(_e);
-    });
-};
+    async start() {
+        await this.initDatabase();
+        await this.initZookeeper();
 
-initDatabase().then(function () {
-    console.log("Database connections INIT... Starting API server...");
-    app.listen(port, () => {
+        this.zkMkdirp("/chain");
 
-        console.log(`HashChain API (v${$package.version}) LISTENING ${port}`);
+        console.log("Database connections INIT... Starting API server...");
+        this.app.listen(this.port, () => {
 
-        app.get('/ping', (req, res, next) => {
-            res.send("pong");
-        });
+            console.log(`HashChain API (v${$package.version}) LISTENING ${this.port}`);
 
-        app.get('/reload_schema', async (req, res) => {
-            await wconn.client.query(fs.readFileSync(path.join(__dirname, '..', 'scripts', 'sql', 'schema.sql'), 'utf8')).catch(_e => {
-                res.status(500).send(_e.toString());
+            this.app.get('/ping', (req, res, next) => {
+                res.send("pong");
             });
 
-            res.status(200).send('OK');
+            this.app.get('/reload_schema', async (req, res) => {
+                await this.wconn.client.query(fs.readFileSync(path.join(__dirname, '..', 'scripts', 'sql', 'schema.sql'), 'utf8')).catch(_e => {
+                    res.status(500).send(_e.toString());
+                });
+
+                res.status(200).send('OK');
+            });
+
+            this.app.post('/chain', async (req, res) => {
+
+                const dbWrite = async (sqId) => {
+
+                    console.log(`Writing new link with sequence number ${sqId}`);
+
+                    const resultSet = await this.wconn.client.query(`
+                        BEGIN;
+                            LOCK TABLE chain IN EXCLUSIVE MODE;
+                            SELECT * FROM pghc_add_link(${sqId}, '${this.hostname}');
+                        COMMIT;
+                    `).catch(_e => {
+                        throw new Error(_e);
+                    });
+
+                    const tryDel = async () => {
+                        const g_reply = await this.zk.get(this.lockpath).catch(_e => {
+                            throw new Error(_e);
+                        });
+
+                        return this.zk.delete(this.lockpath, g_reply.stat.version).catch(_e => {
+                            if(_e.name == 'ZBADVERSION'){
+                                return tryDel();
+                            }else{
+                                throw new Error(_e);
+                            }
+                        });
+                    };
+
+                    await tryDel();
+                    return resultSet[2].rows[0];
+                };
+
+                //queue for the lock
+                this.lockpath = await this.zk.create('/chain/lock.', new String(), ZooKeeper.ZOO_EPHEMERAL | ZooKeeper.ZOO_SEQUENCE ).catch(_e => {
+                    throw new Error(_e);
+                });
+
+                const checkLockStatus = async () => {
+                    return this.zk.getChildren('/chain').then(async _r => {
+                        const sortedChildren = _r.children.sort();
+                        const lidx = sortedChildren.indexOf(path.basename(this.lockpath));
+                        if(lidx == 0){
+                            //get lock sequence number
+                            const sqId = parseInt(path.basename(this.lockpath).split('.')[1]);
+                            const newLink = await dbWrite(sqId);
+                            res.json(newLink);
+                            return newLink;
+                        }else{
+                            const prevChild = sortedChildren[lidx - 1];
+                            const e_reply = await this.zk.exists(`/chain/${prevChild}`, true);
+
+                            if(!e_reply.stat){
+                                return checkLockStatus();
+                            }else{
+                                return e_reply.watch.then(checkLockStatus.bind(this));
+                            }
+
+                        }
+                    }).catch(_e => {
+                        res.status(500).send(_e.toString());
+                        throw new Error(_e);
+                    });
+                };
+
+                await checkLockStatus();
+            });
         });
-    });
-}, _e => {
-    throw new Error(_e);
-});
+    }
+}
+
+const api = new PghcAPI();
+api.start();
