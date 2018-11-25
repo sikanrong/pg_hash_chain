@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: pghc-zookeeper
-  serviceName: pghc-zookeeper-svc
+  serviceName: pghc-zookeeper-dns
   replicas: 3
   template:
     metadata:

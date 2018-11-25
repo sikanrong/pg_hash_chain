@@ -37,19 +37,32 @@ class PghcAPI {
 
     //init zookeeper connection
     async initZookeeper () {
-        console.log("Connecting to ZooKeeper...");
+        const zkServer = `pghc-zookeeper-${this.bkClusterIdx}.pghc-zookeeper-dns.pghc.svc.cluster.local:2181`;
+        console.log(`Connecting to ZooKeeper server at ${zkServer}...`);
 
         this.zk = new ZooKeeper({
-            connect: `pghc-zookeeper-${this.bkClusterIdx}.pghc-zookeeper-dns.pghc.svc.cluster.local:2181`,
+            connect: zkServer,
             timeout: 20000,
         });
 
-        await this.zk.connect();
+        const tryZkConnect = async () => {
+            setTimeout(() => {
+                if(this.zk.client_id == 0){
+                    console.error(`TERMINATING: Could not connect to zookeeper (timeout)`);
+                    process.exit(1);
+                }
+            }, 30000);
+
+            await this.zk.connect();
+        };
+
+        await tryZkConnect();
 
         //heartbeat
         setInterval(async () => {
-            await this.zk.get('/chain').catch((err) => {
-                throw new Error(err);
+            await this.zk.get('/chain').catch((_e) => {
+                console.error(_e);
+                process.exit(1);
             });
         }, 1000);
 

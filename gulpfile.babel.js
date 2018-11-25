@@ -134,7 +134,7 @@ gulp.task("k8s-configmaps", ["k8s-connect"], async () => {
 
     const zkConf = template({
         zk_servers: zk_node_set.map(_i => {
-            return `server.${(_i + 1).toString()}=pghc-zookeeper-${_i}.pghc-zookeeper-svc.pghc.svc.cluster.local:2888:3888`;
+            return `server.${(_i + 1).toString()}=pghc-zookeeper-${_i}.pghc-zookeeper-dns.pghc.svc.cluster.local:2888:3888`;
         }).join("\n")
     });
 
@@ -162,7 +162,7 @@ const deployPostgresNodes = async () => {
 
 const deployZookeeper = async() => {
     await loadConfig(client.apis.apps.v1.namespaces('pghc').statefulsets, path.join(__dirname, 'kubernetes', 'controllers', 'pghc-zookeeper.statefulset.spec.k8s.yaml'));
-    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-zookeeper.service.spec.k8s.yaml'));
+    await loadConfig(client.api.v1.namespaces('pghc').services, path.join(__dirname, 'kubernetes', 'services', 'pghc-zookeeper.dns.spec.k8s.yaml'));
 };
 
 const deployFrontend = async() => {

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: pghc-zookeeper-svc
+  name: pghc-zookeeper-dns
   namespace: pghc
   labels:
     app: pghc-zookeeper
