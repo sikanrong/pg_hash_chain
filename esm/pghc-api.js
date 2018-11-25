@@ -208,6 +208,18 @@ class PghcAPI {
 
                 await checkLockStatus();
             });
+
+            this.app.get('/chain/recent', async (req, res) => {
+                const _r = await this.rconn.client.query(`
+                    SELECT * FROM chain
+                    GROUP BY chain.zk_id
+                    ORDER BY chain.zk_id DESC 
+                    LIMIT 10;
+                `);
+
+                res.json(_r.rows);
+            });
+
         });
     }
 }
