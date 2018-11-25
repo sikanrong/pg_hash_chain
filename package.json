@@ -6,7 +6,7 @@
   "scripts": {
     "build": "babel esm --source-maps inline --out-dir cjs",
     "prepublish": "npm run build",
-    "test": "ava --tap test.js"
+    "test": "ava --tap test/test.js"
   },
   "repository": {
     "type": "git",
@@ -34,7 +34,8 @@
     "gulp": "^3.9.1",
     "kubernetes-client": "^6.4.0",
     "uuid": "^3.3.2",
-    "js-yaml": "^3.12.0"
+    "js-yaml": "^3.12.0",
+    "node-fetch": "^2.3.0"
   },
   "author": "Alexander Pilafian",
   "license": "GPL-3.0",
@@ -43,7 +44,8 @@
   },
   "pghc": {
     "num_bdr_groups": 2,
-    "wal_archive_path": "/home/app/bdr/wal-archive"
+    "wal_archive_path": "/home/app/bdr/wal-archive",
+    "public_api_base": "http://minikube.ingress/api"
   },
   "homepage": "https://github.com/sikanrong/pg_hash_chain#readme",
   "babel": {
