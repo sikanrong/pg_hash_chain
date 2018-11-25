@@ -175,7 +175,7 @@ const deployFrontend = async() => {
 
 gulp.task("k8s-deploy-backend", ["k8s-connect", "k8s-configmaps"], deployFrontend.bind(this));
 gulp.task("k8s-deploy-postgres", ["k8s-connect", "k8s-configmaps"], deployPostgresNodes.bind(this));
-gulp.task("k8s-deploy-zookeeper", ["k8s-connect", "k8s-configmaps"], async () => deployZookeeper.bind(this));
+gulp.task("k8s-deploy-zookeeper", ["k8s-connect", "k8s-configmaps"], deployZookeeper.bind(this));
 
 gulp.task("k8s-deploy", ["k8s-connect", "k8s-configmaps"], async () => {
     await deployPostgresNodes();
