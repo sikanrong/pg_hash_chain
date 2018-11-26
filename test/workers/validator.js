@@ -28,7 +28,7 @@ const validateRecent = () => {
                 });
             }
 
-            return validateRecent();
+            setTimeout(validateRecent, 200);
         });
 };
 
