@@ -19,12 +19,11 @@ const killChildren = () => {
 test('ten second high-load run with verification', async t => {
     child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));
     child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));
+    child_ps.push(fork(path.join(__dirname, 'workers', 'validator.js')));
 
     child_ps.forEach(_c => {
         _c.on('message', _m => {
-            if(_m.message == 'link_added'){
-                t.pass();
-            }
+            t[_m.message]();
         });
     });
 

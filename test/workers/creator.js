@@ -9,7 +9,7 @@ const addLink = () => {
 
         if(process.send){
             process.send({
-                message: 'link_added',
+                message: 'pass',
                 value: _o
             });
         }
