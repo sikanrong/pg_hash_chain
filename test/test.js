@@ -3,6 +3,7 @@ import {fork} from "child_process";
 import path from "path";
 
 let child_ps = [];
+let links_added = 0;
 
 const killChildren = () => {
     child_ps.forEach(_c => {
@@ -16,7 +17,7 @@ const killChildren = () => {
     child_ps = [];
 };
 
-test('ten second high-load run with verification', async t => {
+test('one minute high-load run with verification', async t => {
     child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));
     child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));
     child_ps.push(fork(path.join(__dirname, 'workers', 'validator.js')));
@@ -24,14 +25,19 @@ test('ten second high-load run with verification', async t => {
     child_ps.forEach(_c => {
         _c.on('message', _m => {
             t[_m.message]();
+
+            if(_m.type == 'chain_link_add'){
+                links_added++;
+            }
         });
     });
 
     return new Promise((_res, _rej) => {
        setTimeout(() => {
+           console.log(`Links added: ${links_added}`);
            killChildren();
            _res();
-       }, 10000);
+       }, 60000);
     });
 
 });

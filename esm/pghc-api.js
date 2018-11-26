@@ -153,7 +153,6 @@ class PghcAPI {
 
                     const resultSet = await this.wconn.client.query(`
                         BEGIN;
-                            LOCK TABLE chain IN EXCLUSIVE MODE;
                             SELECT * FROM pghc_add_link(${sqId}, '${this.hostname}');
                         COMMIT;
                     `).catch(_e => {
@@ -175,7 +174,7 @@ class PghcAPI {
                     };
 
                     await tryDel();
-                    return resultSet[2].rows[0];
+                    return resultSet[1].rows[0];
                 };
 
                 const checkLockStatus = async () => {

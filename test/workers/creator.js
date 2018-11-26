@@ -10,6 +10,7 @@ const addLink = () => {
         if(process.send){
             process.send({
                 message: 'pass',
+                type: 'chain_link_add',
                 value: _o
             });
         }
