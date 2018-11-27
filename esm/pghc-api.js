@@ -128,6 +128,10 @@ class PghcAPI {
 
             console.log(`HashChain API (v${$package.version}) LISTENING ${this.port}`);
 
+            this.app.get('/cluster/config', (req, res) => {
+                res.json($package.pghc);
+            });
+
             this.app.get('/ping', (req, res, next) => {
                 res.send("pong");
             });

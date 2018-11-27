@@ -45,6 +45,7 @@
   },
   "pghc": {
     "num_bdr_groups": 2,
+    "num_total_pg_nodes": 4,
     "wal_archive_path": "/home/app/bdr/wal-archive",
     "public_api_base": "http://minikube.ingress/api"
   },
