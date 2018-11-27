@@ -151,6 +151,20 @@ class PghcAPI {
                     throw new Error(_e);
                 });
 
+                const tryDel = async () => {
+                    const g_reply = await this.zk.get(lockpath).catch(_e => {
+                        throw new Error(_e);
+                    });
+
+                    return this.zk.delete(lockpath, g_reply.stat.version).catch(_e => {
+                        if(_e.name == 'ZBADVERSION'){
+                            return tryDel();
+                        }else{
+                            throw new Error(_e);
+                        }
+                    });
+                };
+
                 const dbWrite = async (sqId) => {
 
                     console.log(`Writing new link with sequence number ${sqId}`);
@@ -160,22 +174,10 @@ class PghcAPI {
                             SELECT * FROM pghc_add_link(${sqId}, '${this.hostname}');
                         COMMIT;
                     `).catch(_e => {
-                        throw new Error(_e);
+                        //report the error and kill the process so that
+                        console.error(_e);
+                        process.kill(process.pid);
                     });
-
-                    const tryDel = async () => {
-                        const g_reply = await this.zk.get(lockpath).catch(_e => {
-                            throw new Error(_e);
-                        });
-
-                        return this.zk.delete(lockpath, g_reply.stat.version).catch(_e => {
-                            if(_e.name == 'ZBADVERSION'){
-                                return tryDel();
-                            }else{
-                                throw new Error(_e);
-                            }
-                        });
-                    };
 
                     await tryDel();
                     return resultSet[1].rows[0];
