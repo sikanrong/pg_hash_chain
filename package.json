@@ -1,6 +1,6 @@
 {
-  "name": "pg_hash_chain",
-  "version": "1.0.0",
+  "name": "pghc",
+  "version": "0.1.0",
   "description": "A simple simulation of global-scale distributed database activity to test various features or multi-master replication and conflict resolution.",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sikanrong/pg_hash_chain.git"
+    "url": "https://github.com/sikanrong/pghc.git"
   },
   "keywords": [
     "postgres",
@@ -41,14 +41,14 @@
   "author": "Alexander Pilafian",
   "license": "GPL-3.0",
   "bugs": {
-    "url": "https://github.com/sikanrong/pg_hash_chain/issues"
+    "url": "https://github.com/sikanrong/pghc/issues"
   },
   "pghc": {
     "num_bdr_groups": 2,
     "wal_archive_path": "/home/app/bdr/wal-archive",
     "public_api_base": "http://minikube.ingress/api"
   },
-  "homepage": "https://github.com/sikanrong/pg_hash_chain#readme",
+  "homepage": "https://github.com/sikanrong/pghc#readme",
   "babel": {
     "presets": [
       [
