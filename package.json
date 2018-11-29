@@ -36,7 +36,8 @@
     "uuid": "^3.3.2",
     "js-yaml": "^3.12.0",
     "node-fetch": "^2.3.0",
-    "md5": "^2.2.1"
+    "md5": "^2.2.1",
+    "cors": "^2.8.5"
   },
   "author": "Alexander Pilafian",
   "license": "GPL-3.0",

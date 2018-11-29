@@ -6,6 +6,7 @@ import {Pool} from "pg";
 import {spawnSync} from "child_process";
 import yaml from "js-yaml";
 import ZooKeeper from "zk";
+import cors from "cors";
 
 class PghcAPI {
     constructor() {
@@ -124,6 +125,7 @@ class PghcAPI {
         this.zkMkdirp("/chain");
 
         console.log("Database connections INIT... Starting API server...");
+        this.app.use(cors());
         this.app.listen(this.port, () => {
 
             console.log(`HashChain API (v${$package.version}) LISTENING ${this.port}`);
