@@ -18,8 +18,7 @@ spec:
     spec:
       containers:
       - name: pghc-postgres
-        image: pghc-postgres
-        imagePullPolicy: Never
+        image: sikanrong101/pghc-postgres:latest
         volumeMounts:
         - mountPath: /home/app/bdr/wal-archive
           name: wal-archive

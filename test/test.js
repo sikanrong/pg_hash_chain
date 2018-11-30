@@ -20,8 +20,8 @@ const killChildren = () => {
 };
 
 test('one minute high-load run with verification', async t => {
-    await fetch(`${$package.pghc.public_api_base}/reload_schema`)
-        .then(_o => {console.log(_o)});
+    // await fetch(`${$package.pghc.public_api_base}/reload_schema`)
+    //     .then(_o => {console.log(_o)});
 
     child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));
     child_ps.push(fork(path.join(__dirname, 'workers', 'creator.js')));

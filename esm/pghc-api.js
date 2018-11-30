@@ -4,7 +4,6 @@ import * as fs from "fs";
 import * as path from "path";
 import {Pool} from "pg";
 import {spawnSync} from "child_process";
-import yaml from "js-yaml";
 import ZooKeeper from "zk";
 import cors from "cors";
 
@@ -22,13 +21,12 @@ class PghcAPI {
         const hostname_components = this.hostname.split('-');
         this.pod_idx = parseInt(hostname_components[hostname_components.length - 1]);
 
-        const pgReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', 'kubernetes', 'controllers', 'pghc-postgres-repl.statefulset.spec.k8s.yaml')));
-        const bkReplSet = yaml.safeLoad(fs.readFileSync(path.join(__dirname, '..', 'kubernetes', 'controllers', 'pghc-backend.statefulset.spec.k8s.yaml')));
+        const bkReplicas = $package.pghc.num_total_pg_nodes - $package.pghc.num_bdr_groups;
 
         //Find the correct read and write database to connect to via simple math.
-        this.bkClusterIdx = parseInt(this.pod_idx / parseInt(bkReplSet.spec.replicas / $package.pghc.num_bdr_groups));
-        this.bkClusterInnerIdx = (this.pod_idx % parseInt(bkReplSet.spec.replicas / $package.pghc.num_bdr_groups));
-        this.pgMasterIdx = this.bkClusterIdx * parseInt( pgReplSet.spec.replicas / $package.pghc.num_bdr_groups );
+        this.bkClusterIdx = parseInt(this.pod_idx / parseInt( bkReplicas / $package.pghc.num_bdr_groups));
+        this.bkClusterInnerIdx = (this.pod_idx % parseInt( bkReplicas / $package.pghc.num_bdr_groups));
+        this.pgMasterIdx = this.bkClusterIdx * parseInt( $package.pghc.num_total_pg_nodes / $package.pghc.num_bdr_groups );
         this.pgSlaveIdx = this.pgMasterIdx + 1 + this.bkClusterInnerIdx;
 
         this.rconn = null;

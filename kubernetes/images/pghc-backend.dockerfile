@@ -7,11 +7,11 @@ WORKDIR /home/app/hash_chain
 COPY package.json package.json
 RUN npm install --production
 COPY esm esm
-COPY kubernetes kubernetes
 COPY scripts scripts
 RUN npm run build
 
 EXPOSE 9228 8080
+VOLUME ["/home/app/postgres_k8s_config"]
 
 CMD nohup socat TCP-LISTEN:9228,fork TCP:127.0.0.1:31001 & \
 node --inspect=31001 cjs/pghc-api.js;

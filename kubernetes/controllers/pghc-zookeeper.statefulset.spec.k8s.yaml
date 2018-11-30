@@ -18,8 +18,7 @@ spec:
     spec:
       containers:
       - name: pghc-zookeeper
-        image: pghc-zookeeper
-        imagePullPolicy: Never
+        image: sikanrong101/pghc-zookeeper:latest
         volumeMounts:
         - mountPath: /home/app/zk_conf
           name: zk-conf

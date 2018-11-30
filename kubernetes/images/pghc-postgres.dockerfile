@@ -19,6 +19,7 @@ VOLUME ["$BDR_HOME/config", "$BDR_HOME/master-basebackup", "$BDR_HOME/wal-archiv
 
 EXPOSE $PGPORT
 COPY scripts/postgres-entrypoint.sh /home/app/postgres-entrypoint.sh
+COPY scripts/sql/schema.sql /home/app/schema.sql
 RUN sudo chmod +x /home/app/postgres-entrypoint.sh
 
 ENTRYPOINT ["/home/app/postgres-entrypoint.sh"]
