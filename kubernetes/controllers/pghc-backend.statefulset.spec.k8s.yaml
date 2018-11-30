@@ -18,5 +18,4 @@ spec:
     spec:
       containers:
       - name: pghc-backend
-        image: pghc-backend
-        imagePullPolicy: Never
+        image: sikanrong101/pghc-backend:latest
