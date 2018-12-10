@@ -1,7 +1,7 @@
 PGHC
 ====
 
-###(Postgres HashChain)
+### (Postgres HashChain)
 
 This project is meant to be an exploration of 
 global-scale distributed systems. As such, it 
@@ -16,9 +16,9 @@ concepts around distributed systems such as:
 2. Total-order Broadcast
 3. Preservation of Causality
 
-####Cluster Configuration
+#### Cluster Configuration
 
-#####Database nodes
+##### Database nodes
 This project uses Docker and Kubernetes to 
 deploy a cluster of Postgres databases in a
 configuration one might expect to see in a 
@@ -38,7 +38,7 @@ overall setup is a multi-master database architecture,
 with all the inherent problems that one might 
 expect to encounter given such a design.
 
-#####API Nodes
+##### API Nodes
 The cluster also includes a simple API written in
 NodeJS. The purpose of the PGHC API is to 
 express an application that naturally depends on 
@@ -79,7 +79,7 @@ in the "chain" table sorted by the zk_id, and use
 the MD5 algorithm to verify that causality has been
 correctly preserved at each stage.
 
-#####Apache Zookeeper
+##### Apache Zookeeper
 Specifically what is needed to preserve causality
 in a distributed system is _"Total-Order Broadcast"_. 
 Meaning, our application should be smart enough 
